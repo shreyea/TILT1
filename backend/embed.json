@@ -1,0 +1,1675 @@
+{
+  "props": {
+    "pageProps": {
+      "state": {
+        "data": {
+          "entity": {
+            "type": "playlist",
+            "name": "Lofi Songs (Sukoon Vibes) \ud83d\udc9c",
+            "uri": "spotify:playlist:5jYQ4O9Ii3tQcSbJMtVrk8",
+            "id": "5jYQ4O9Ii3tQcSbJMtVrk8",
+            "title": "Lofi Songs (Sukoon Vibes) \ud83d\udc9c",
+            "subtitle": "Feel Magical Vibes",
+            "authors": null,
+            "coverArt": {
+              "sources": [
+                {
+                  "height": null,
+                  "width": null,
+                  "url": "https://image-cdn-ak.spotifycdn.com/image/ab67706c0000da84db57d46c1ca65e3fac2540dd"
+                }
+              ]
+            },
+            "releaseDate": null,
+            "duration": 0,
+            "isPlayable": true,
+            "playabilityReason": "UNKNOWN",
+            "isExplicit": false,
+            "hasVideo": false,
+            "relatedEntityUri": "spotify:playlist:5jYQ4O9Ii3tQcSbJMtVrk8",
+            "trackList": [
+              {
+                "uri": "spotify:track:1KPAtV3E11Y3pbnzUOtO0d",
+                "uid": "54c1a228a4607231",
+                "title": "Samjhawan - Lofi Flip",
+                "subtitle": "KSW,\u00a0Arijit Singh,\u00a0Shreya Ghoshal,\u00a0Shaarib Toshi,\u00a0Jawad Ahmad",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 227100,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/a1cf344e13a2ca65d7d8efe0626563e7663d0a13"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:1E16f7KcZmuXuhlenRwA2m",
+                "uid": "d793a076e42a76b4",
+                "title": "Saibo - Lofi Flip",
+                "subtitle": "VIBIE,\u00a0Sachin-Jigar,\u00a0Shreya Ghoshal,\u00a0Tochi Raina,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 146666,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/855caaadfccaef367d92029da5c89e701720c371"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0ThEdqK8ZBi4nKNs1fOpJD",
+                "uid": "c237a5705b04706d",
+                "title": "Tu Jaane Naa (Lofi Mix)",
+                "subtitle": "Atif Aslam,\u00a0DJ Rink",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 338875,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/972549881cb7fcc6f62cf3229de67aea5cea7097"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:1pnC5d46tqFwjqGtbjJPn7",
+                "uid": "9bf8953f97783b6c",
+                "title": "Subhanallah Lofi Mix",
+                "subtitle": "Pritam,\u00a0Sreerama Chandra,\u00a0Shilpa Rao,\u00a0Kedrock,\u00a0Sd Style",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 199026,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/cd536e06a27b9c91af694ef01b56390e5d1b71d7"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:56KxZMulGjsHVq1w3aiXqR",
+                "uid": "1601a547debfec53",
+                "title": "Ve Kamleya - LoFi",
+                "subtitle": "Deepanshu Ruhela,\u00a0Arijit Singh,\u00a0Shreya Ghoshal,\u00a0Altamash Faridi,\u00a0Shadab Faridi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 170454,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/d1a30f278de4fd1bffe74813731c1a336bab7200"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:5EIFtcs5653Xjgs1gAAB7a",
+                "uid": "9ef16fab309bfe80",
+                "title": "Pee Loon Lofi Mix",
+                "subtitle": "Pritam,\u00a0Mohit Chauhan,\u00a0Kedrock,\u00a0Sd Style",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 194261,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/b6ff84647cf7e8ea79d167ceeab786616a9e1c17"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:1f87jzSHnf9KCeUKSp6sFv",
+                "uid": "fbff257fb7b4ad94",
+                "title": "Dil Jhoom Lofi By DJ Raahul Pai",
+                "subtitle": "Mithoon,\u00a0Arijit Singh,\u00a0Dj Raahul Pai",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 193056,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/800f962a75499dc966ceede6f5261b19b17870b0"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:6VBhH7CyP56BXjp8VsDFPZ",
+                "uid": "cd6f0d91f7136f3f",
+                "title": "Kesariya (From \"Brahmastra\")",
+                "subtitle": "Pritam,\u00a0Arijit Singh,\u00a0Amitabh Bhattacharya",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 268164,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/9ca5c9b20f18ba3c8d08887c08c0d22b3f8699b1"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0LMGlOgPDCBvIaWXmJpuDl",
+                "uid": "b9cfe54f0648d1bb",
+                "title": "Dil Diyan Gallan - LoFi Mix",
+                "subtitle": "Vishal-Shekhar,\u00a0Atif Aslam,\u00a0Irshad Kamil",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 206869,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/1c8b65ef39b863e962401e4022daac4e204433a8"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:7JOFplrLQfYkuEcWCASZDo",
+                "uid": "a675581fee2b0cc9",
+                "title": "Iktara - Lofi Flip",
+                "subtitle": "VIBIE,\u00a0Amit Trivedi,\u00a0Kavita Seth,\u00a0Amitabh Bhattacharya,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 174000,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/76e35e49126a8210f36e305001d32994c103ead0"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:72zHuDxFQTjbL51qJQSA7j",
+                "uid": "d987f82f3f22ec89",
+                "title": "Ranjha (From \"Shershaah\")",
+                "subtitle": "Jasleen Royal,\u00a0B Praak,\u00a0Romy",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 228855,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/a27b63f462e9482cf5f6443fb40dbcb74a2fccee"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:5bQ6oDLqvw8tywmnSmwEyL",
+                "uid": "51648236dda5a5e6",
+                "title": "Apna Bana Le",
+                "subtitle": "Sachin-Jigar,\u00a0Arijit Singh,\u00a0Amitabh Bhattacharya",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 261702,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/c2ee84b491edafb8f988c619feb241181343be07"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:18YHbIhrleUkKKj2DvEp79",
+                "uid": "ef0761ce6ffdc7ab",
+                "title": "Zara Sa",
+                "subtitle": "Pritam,\u00a0KK,\u00a0Sayeed Quadri",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 303680,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/5ef2169ce2d7cbcffd7fae544422f206b991c142"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:13KIV1iZ2LXabTE1v9GONW",
+                "uid": "543aa9de94599b0f",
+                "title": "O Re Piya - Lofi Mix",
+                "subtitle": "Salim\u2013Sulaiman,\u00a0Rahat Fateh Ali Khan,\u00a0Jaideep Sahni",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 225000,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/1b84c776bd88c4b72ebf980a07814f9cc7897604"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:77IPBSEbMAiH7gOGfLllKz",
+                "uid": "867cf0ccce72225d",
+                "title": "Saiyyan - Lofi Flip",
+                "subtitle": "Kailash Kher,\u00a0VIBIE",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 267834,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/06491362ee62b383e8c919a98ba50a079669bff2"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2abR4ilhs5JWqZq12SB3GB",
+                "uid": "0655b9069fd7862a",
+                "title": "Ek Din Title Track - From \"Ek Din\"",
+                "subtitle": "Arijit Singh,\u00a0Ram Sampath,\u00a0Irshad Kamil",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 261818,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/186eb96b19c5eabde749fc73cbee71d72eee63cf"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:6PEKFVQUBEY2zQEE7bYEpF",
+                "uid": "2e58e537ae75dc41",
+                "title": "Tera Hone Laga Hoon (Lofi Mix)",
+                "subtitle": "Atif Aslam,\u00a0Alisha Chinai,\u00a0Abhimanyu-Pragya",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 270526,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/12736fd93b3033c6d3663521bbc8c5b4b68e708f"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:1likAlZIuAlfJCWOItGojk",
+                "uid": "8da66d1fe5b69fa3",
+                "title": "Paniyon Sa Lofi Mix",
+                "subtitle": "Tulsi Kumar,\u00a0Atif Aslam,\u00a0Rochak Kohli,\u00a0Anik8",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 212287,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/64632f3e13800eb5c65e057cd1b887fbb409388b"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:7bzR0C8NhnBA79iTXUCJ7o",
+                "uid": "c479acf167561c5a",
+                "title": "Jaanam (From \"Bad Newz\")",
+                "subtitle": "Vishal Mishra",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 198035,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/4c3e3ee37a11cbafdfef575a72044d95f5f0ee00"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:4DvAqLQNC0kW3XT2EE69cY",
+                "uid": "9acd126f4e06ef39",
+                "title": "Tum Tak - Lofi Flip",
+                "subtitle": "Deepanshu Ruhela,\u00a0Swattrex,\u00a0Javed Ali,\u00a0A.R. Rahman",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 128399,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/3f440f49b031487b1bf9b9dc73d9b3d5327c50ea"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:1CsRoIeHaHRysPMoEaKRoQ",
+                "uid": "0ee90352ff49d082",
+                "title": "Tum Mile - Lofi Flip",
+                "subtitle": "KSW,\u00a0Neeraj Shridhar,\u00a0Pritam",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 242103,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/b02cc4e9b88480bd8c829699d919d6429483b9e5"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:3TEpHcylaJDZyYOiBVzlwN",
+                "uid": "06e10368c8966b7b",
+                "title": "Raanjhanaa - Lofi Flip",
+                "subtitle": "Silent Ocean,\u00a0Jaswinder Singh,\u00a0Shiraz Uppal,\u00a0A.R. Rahman",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 190000,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/3ec0d335a948e45e5642be935b75a258f58d78a4"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0snQrp1VaY5Pj1YIHRJpRJ",
+                "uid": "cec9362f3a8717d5",
+                "title": "Chaand Baaliyan",
+                "subtitle": "Aditya A",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 103264,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/f94adb4d193339ca817a41b662a821ab26161566"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:23UKXgXmLkT0XyPBeKx2gP",
+                "uid": "d946d5df710e3d31",
+                "title": "Koi Naa (From \"Bhool Chuk Maaf\")",
+                "subtitle": "Tanishk Bagchi,\u00a0Gifty,\u00a0Harnoor,\u00a0Shreya Ghoshal,\u00a0Irshad Kamil",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 221117,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/03318fd0f841fb28e027780e433b47229026a858"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0GucA3qLWxJU6Peffg3yHD",
+                "uid": "6e8f44ff6a0710bc",
+                "title": "Ilahi Lofi Mix",
+                "subtitle": "Pritam,\u00a0Arijit Singh,\u00a0Kedrock,\u00a0Sd Style",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 171060,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/f67c4b9a413a991c0ba17638da7c67b7b7538e0e"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:6qSNgCUyjfThWCLkFlvEIe",
+                "uid": "53639a3486e33299",
+                "title": "Shayad X Samjhawan - Lofi Flip",
+                "subtitle": "Amtee,\u00a0Arijit Singh,\u00a0Pritam,\u00a0Jawad Ahmad,\u00a0Shaarib Toshi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 188555,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/9f8cb7aace21b5684660e1aa16424268abf78cbb"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2plbrEY59IikOBgBGLjaoe",
+                "uid": "04bef171521d8e32",
+                "title": "Die With A Smile",
+                "subtitle": "Lady Gaga,\u00a0Bruno Mars",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 251667,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/07cebc34d49ff7a0f1ce21e4902ebbf3238f6788"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:6udC4b4jOSnHb9ItnXgKLR",
+                "uid": "ce384b69b6858dde",
+                "title": "Saibo",
+                "subtitle": "Sachin-Jigar,\u00a0Shreya Ghoshal,\u00a0Tochi Raina",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 195253,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/c5aec90818037c2ce4494e06582e3ea8c9292d4c"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:7nsjBUVRQTUEvCReXAtVPi",
+                "uid": "515c17d826a005f7",
+                "title": "Kesariya - Lofi Flip",
+                "subtitle": "VIBIE,\u00a0Arijit Singh,\u00a0Pritam,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 240157,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/a8fbced46901ca7b39b66d5ad51ac547f737a3f5"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:5w1MhmSc5S5iHnhy4s3fFb",
+                "uid": "73aae75af171d577",
+                "title": "Hawayein - Lofi Flip",
+                "subtitle": "VIBIE,\u00a0Arijit Singh,\u00a0Pritam,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 313040,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/6e05d5f675920ce5638cbbb7264f0cffa40eb527"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:01iMTLk72XWI6pCH2QZ3sR",
+                "uid": "97f28bbbcca48219",
+                "title": "Bheegi Si Bhaagi Si - Lofi Flip",
+                "subtitle": "Kedrock,\u00a0Sd Style,\u00a0Mohit Chauhan,\u00a0Antara Mitra,\u00a0Pritam",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 186000,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/de78b011598a9d2afa2fbbd1acf53aae22266bce"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:7EcRb9AkOSRXdTFAlKt5Vy",
+                "uid": "7128313b21266d7e",
+                "title": "Falak Tak - LoFi Mix",
+                "subtitle": "Udit Narayan,\u00a0Mahalaxmi Iyer",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 229859,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/9bab4ad29244567358be1af7d9e96a2f3892ed5b"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2R3CJquLzefg8IYp0K0hnB",
+                "uid": "d9c5018bf5072e62",
+                "title": "Rangisari Lofi Mix",
+                "subtitle": "Kanishk Seth,\u00a0Kavita Seth,\u00a0Kedrock,\u00a0Sd Style",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 181215,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/967b1076de268f9da5024df86dec32b17c585c4f"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:5f4CDQSxZJ8GuYdwMdz37V",
+                "uid": "82b009ec2f8ea31e",
+                "title": "Mere Bina - Lofi Flip",
+                "subtitle": "KSW,\u00a0Nikhil D'Souza,\u00a0Pritam",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 162780,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/98155cf7db8bf8a94e3b302d877a29386353a15b"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:4XdgtQ0wt7fikgV4xvR5tm",
+                "uid": "0f1478a7937690de",
+                "title": "Piya O Re Piya (Lofi Mix)",
+                "subtitle": "Atif Aslam,\u00a0Shreya Ghoshal,\u00a0Shahraaz Khan",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 177031,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/a502b0dac3f81b0810bffbf8b05edc795e78727c"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0q1EaeaqfLBLqRvlkSbYi9",
+                "uid": "87ec0b94e2b3d2c4",
+                "title": "Kyon - Lofi Flip",
+                "subtitle": "Papon,\u00a0Harrlin,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 97822,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/c06c68c62020bccd1e4088e44c4094302823514e"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0s8Ht3XaHDQuDjLnK3xVMW",
+                "uid": "f28f3673c465684b",
+                "title": "Shayad - Lofi Flip",
+                "subtitle": "VIBIE,\u00a0Arijit Singh,\u00a0Pritam,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 208000,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/2a1e00147c03cbbead38ad8da69d9922006ef868"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:3KO7HfUxd8hBN4grsxYGuo",
+                "uid": "9e6d7a730994675a",
+                "title": "Mera Mann - Lo-Fi Remix",
+                "subtitle": "Lofiwaala,\u00a0Bishal Barman",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 153338,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/fb5b48685caea701376b2265ad686f4f6c5fb357"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:1A2C3BQQ5CivJEqjKpXMTl",
+                "uid": "523e7a45f1b22a18",
+                "title": "Tune Jo Na Kaha - LoFi Mix",
+                "subtitle": "Pritam,\u00a0Mohit Chauhan,\u00a0Sandeep Shrivastava",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 194221,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/5de64f7a7322a46dd566092be7b6bcc3cdf62836"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:7BbhFrLzCP7DdnV69vVbCv",
+                "uid": "a5bfbc8b1ae5017d",
+                "title": "Hosanna - Lofi Flip",
+                "subtitle": "Leon D'souza,\u00a0Suzanne D'Mello,\u00a0Vijay Prakash,\u00a0Blaaze,\u00a0Jammy Weirdo,\u00a0Mig",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 256120,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/82a26f53be9946ef6cff3a0299af89221f8efe96"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0wAiAjJ1TmfZHwclMAcVAR",
+                "uid": "b684c20ea19643cc",
+                "title": "Love Me Thoda Lofi",
+                "subtitle": "Swattrex",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 224500,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/78e6404ae271abeb193af279fb27d230bb671cd1"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2NOVGPOYR9H4hMxGRFZH9f",
+                "uid": "bc3e9011afd726ea",
+                "title": "Tum Jo Aaye & Tere Bin Nahin Lagda",
+                "subtitle": "Tulsi Kumar,\u00a0Rahat Fateh Ali Khan,\u00a0Asees Kaur,\u00a0Tanishk Bagchi,\u00a0Dj Chetas,\u00a0DJ Nyk,\u00a0Pritam,\u00a0Irshad Kamil,\u00a0Rashmi Virag",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 214994,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/2c58bcd41da313f6c2ccb4b4d35732a98ba8f64d"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:7piQzFGVVJ4s1zvRvZV303",
+                "uid": "e1679ab07764bd06",
+                "title": "Te Amo Lofi Mix",
+                "subtitle": "Ash King,\u00a0Sunidhi Chauhan,\u00a0Pritam,\u00a0Kedrock,\u00a0Sd Style",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 164137,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/2e4682f20f436f630d044fc7576e361e250532b3"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:6yPeH5NabkngbGQf4Nlg1E",
+                "uid": "dadb29cdb2e072df",
+                "title": "Sun Bhi Le - Lofi",
+                "subtitle": "Arijit Singh,\u00a0Vishal Mishra",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 163013,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/56dd4d71c882711e5feef90f9da0aca3b1368b7e"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:7vwTvVDpsONocB0zr8ShtJ",
+                "uid": "845402e06b262808",
+                "title": "Ranjha - Lofi Flip",
+                "subtitle": "VIBIE,\u00a0Jasleen Royal,\u00a0B Praak,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 201600,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/30f2e13af00e32bb424bf0ed68b6ce7369821386"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2FCXQHugkoHE1K3tiDu8pu",
+                "uid": "94b66e61a44a2490",
+                "title": "Agar Tum Saath Ho (From \"Tamasha\")",
+                "subtitle": "Alka Yagnik,\u00a0Arijit Singh",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 341054,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/337567e59bd647a7294a8c0afefa9ccf3e8a6d27"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2f7zO0rjaIcGO9Nf0nwL8S",
+                "uid": "a3cc19f50c081e3f",
+                "title": "Darasal Lofi Mix",
+                "subtitle": "Atif Aslam,\u00a0Jay Guldekar,\u00a0Kaushik-Akash-Guddu (Jam8)",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 250090,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/cb9504d8d4222990e485534adf988be1b3eab893"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0yIUl79oGZKSYeLY1KEOxP",
+                "uid": "317c8c2db36919ae",
+                "title": "Raataan Chill Mix - Spotify Singles (Tanishk Bagchi, Jubin Nautiyal, Hanita Bhambri)",
+                "subtitle": "Tanishk Bagchi,\u00a0Jubin Nautiyal,\u00a0Hanita Bhambri",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 154619,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/e540160e6ac366cb0373bb56212e289902965198"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:3IOgP2PSCTdoAID7VmMGEh",
+                "uid": "ecb6abd121a47397",
+                "title": "Ek Ladki Ko Dekha Toh Aisa Laga - Title Track",
+                "subtitle": "Darshan Raval,\u00a0Rochak Kohli,\u00a0R. D. Burman",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 155172,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/f19dc6fbd9885c20b09f71f506485874d2bfc802"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2DElbo4VXfqtYzr1S2z18y",
+                "uid": "d5b0fa6fd74454ad",
+                "title": "Chashni Lofi Mix",
+                "subtitle": "Abhijeet Srivastava,\u00a0Vishal-Shekhar,\u00a0DJ Rink",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 263093,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/061eb1f27e873c4452acd592959a132917f0b415"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:79UQjoU5Yfe4AsVlbVOvPz",
+                "uid": "7f0069a249a98ed3",
+                "title": "Mehrama - Lofi Flip",
+                "subtitle": "Darshan Raval,\u00a0Antara Mitra,\u00a0Silent Ocean",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 216240,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/38de6dfee88c7f70e8ca0517187303f86b0d709d"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0WCP8cKDu29QkKtapB3JSr",
+                "uid": "4448cbb142fb086b",
+                "title": "Tum Todo Na (Male)",
+                "subtitle": "Ash King,\u00a0Sunidhi Chauhan",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 349548,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/d66b9219cbf320bf39420df94afab47785542f69"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:1hd4I7yByPS8RAmc9dM9lH",
+                "uid": "3aa44f81e6817a5a",
+                "title": "Chaand Baaliyan - Lofi Flip",
+                "subtitle": "Silent Ocean,\u00a0Aditya A,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 163874,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/f51cc61a74328acae6d5b93f973c113f43fdbe94"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:05R5NzVM92huBXaszuXSZH",
+                "uid": "1ce6df8fb2eae774",
+                "title": "Teri Ore (Lo-Fi Flip)",
+                "subtitle": "VIBIE",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 243000,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/818d9ba2db4821f22629aa68d029d166bbf63f96"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:21hHDH6amg7qm9QR9vfqb9",
+                "uid": "caeb6a3f26000d85",
+                "title": "Jashne Bahara - Lofi Flip",
+                "subtitle": "Jammy Weirdo,\u00a0Mig",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 184888,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/1824a899db289f92b5adc974fe5fe570b7143cce"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:5Ocj680ji44AtRXvjPbfIp",
+                "uid": "34a2491fcd6c0519",
+                "title": "Be Intehaan (Lofi Mix)",
+                "subtitle": "Atif Aslam,\u00a0Sunidhi Chauhan,\u00a0Abhimanyu-Pragya",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 271846,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/0599737cc6626bb45fca31ee3017fbf08fbcf032"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:53Ns8q7Rzuoj4Q0xOUxKBe",
+                "uid": "fd7de3c12d32e671",
+                "title": "Bas Ek Baar (Lo-Fi Flip)",
+                "subtitle": "Gravero",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 183103,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/aceae18a9653c88b0c5530c961f9140f3e6ef980"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2VL0QXrNHXEctCBkybDSJT",
+                "uid": "23bfc0c1afac0ecf",
+                "title": "Bin Tere - Lofi Flip",
+                "subtitle": "Silent Ocean,\u00a0Shafqat Amanat Ali,\u00a0Sunidhi Chauhan,\u00a0Vishal-Shekhar,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 213320,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/6f6cb5c0d091a721fed99adf2d3af414c9d09a9f"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:1Bd027R0spghop0PUwgjyN",
+                "uid": "a4009e816bffa434",
+                "title": "Kabhii Tumhhe - Lofi Flip",
+                "subtitle": "VIBIE,\u00a0Darshan Raval,\u00a0Javed-Mohsin,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 217411,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/ddfd182762db8549a826b05ddada3f6e053b72a9"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0tpwqQhdfJXRcUDSNRjb9O",
+                "uid": "bca2622583d2f684",
+                "title": "Mere Yaaraa (From \"Sooryavanshi\")",
+                "subtitle": "Arijit Singh,\u00a0Neeti Mohan,\u00a0Rashmi Virag",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 285163,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/5ac439a7801c99249a79610e9b30b0cdc8aec83a"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2HKFoMC6jXuDwavUOdpuky",
+                "uid": "7fb62783078276e8",
+                "title": "Pehli Nazar Mein (Lofi Mix)",
+                "subtitle": "Atif Aslam,\u00a0Shahraaz Khan",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 148821,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/fe44c0c38383a48263c004cb4b11a0a1e50767cc"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:1Tk6XSXwBTlwUibTh8NYEa",
+                "uid": "3600cf9fca4a9a7f",
+                "title": "Love In Lo-Fi Volume 1 - Tujhe Kitna Chahein Aur Hum",
+                "subtitle": "Jubin Nautiyal,\u00a0Dj Chetas,\u00a0DJ Nyk",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 252755,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/e4204ef371ca3809c0ef76c21054be2c0f2551a6"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0Pe6XBhleBHeyuE23ZHETQ",
+                "uid": "026b5fd7b0e87023",
+                "title": "Pal - Lofi Flip",
+                "subtitle": "Kritiman Mishra,\u00a0Arijit Singh,\u00a0Shreya Ghoshal,\u00a0Javed-Mohsin",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 263200,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/499e5870f34409f3044ca176c17bf28240a1efc3"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:3qToa7nSnKh49amY8uWS3B",
+                "uid": "9d420273b01f5cfa",
+                "title": "Sajdaa - Lofi Flip",
+                "subtitle": "Deepanshu Ruhela,\u00a0Rahat Fateh Ali Khan,\u00a0Shankar Mahadevan,\u00a0Richa Sharma,\u00a0Shankar-Ehsaan-Loy",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 128360,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/4df60cd477d70bff0be27379f3c24fb9592c6502"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:0Bfima51LTKrxuBYjv0Qwp",
+                "uid": "bd14aad62784e5ab",
+                "title": "Teri Deewani - Lofi Flip",
+                "subtitle": "Kailash Kher,\u00a0Deepanshu Ruhela,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 187200,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/db2ce7ce1bb4bf6a536a090df2e4520708f52832"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:6ocwTKbnMqlKB5PwA9UPKz",
+                "uid": "0d073d577d1e2339",
+                "title": "Muskurane - Lofi Flip",
+                "subtitle": "KSW,\u00a0Jeet Gannguli,\u00a0Arijit Singh,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 210480,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/7c27353e560243cecf250339d8c5a8457dc07236"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2vIBf8EmRy7m4Q9kR2dikH",
+                "uid": "49c94857020e3bc3",
+                "title": "Tum Se Hi (From \"Love In Lo-Fi Volume 1\")",
+                "subtitle": "Mohit Chauhan,\u00a0Dj Chetas,\u00a0DJ Nyk",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 278776,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/8b92ff7d8b8b9f0cb3f2111a6819c7c5fb822c40"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2iVbbaQdx7VR3gCCFkGxBs",
+                "uid": "7837afc1d173fa4b",
+                "title": "Afreen Afreen",
+                "subtitle": "Shriram Iyer",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 200879,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/f7e19c0c518a1abebeca492b1c18583740ca4820"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:47GoImoZiTI32p1t4H4b7h",
+                "uid": "c4cfe1554320f161",
+                "title": "Raataan Lambiyan - Lofi Flip",
+                "subtitle": "VIBIE,\u00a0Jubin Nautiyal,\u00a0Asees Kaur,\u00a0Tanishk Bagchi,\u00a0Bollywood Lofi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 230370,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/61a98854fb2bcd943cf06437b6c076ff38e20728"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:16HOWN3mbI4guZbNoVKkxZ",
+                "uid": "9cf49840b16d07eb",
+                "title": "Kya Mujhe Pyaar Hai - Lofi Version",
+                "subtitle": "Sohan Rahman,\u00a0Tanim Arafi",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 205000,
+                "isPlayable": false,
+                "playabilityReason": "COUNTRY_RESTRICTED",
+                "audioPreview": null,
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:5JcWfkxzLiDuwulNIzzBvf",
+                "uid": "0ef4ed2fbbcac8c5",
+                "title": "Rang Jo Lagyo (Lofi Mix)",
+                "subtitle": "Atif Aslam,\u00a0Shreya Ghoshal,\u00a0Abhimanyu-Pragya",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 209142,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/e65b3e544ddd06850e637a335ae83c3b43fc2583"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2262bWmqomIaJXwCRHr13j",
+                "uid": "98bf80eb488e056e",
+                "title": "Sailor Song",
+                "subtitle": "Gigi Perez",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 211978,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/365f6692c38093959d0bf3e67231d9589da667bb"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:13CBIr5x7x5ucDVhbIGdtk",
+                "uid": "c1051a9903c1097d",
+                "title": "Soch Na Sake (From \"Love In Lo-Fi Volume 1\")",
+                "subtitle": "Amaal Mallik,\u00a0Arijit Singh,\u00a0Tulsi Kumar,\u00a0Dj Chetas,\u00a0DJ Nyk",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 289024,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/8411bfe986039387a215ba4815cec88a2baaaa69"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:6LUaHuZOYbp2D0gNMGBNFl",
+                "uid": "cd8fb8cf0011a169",
+                "title": "Jhoom (Lofi)",
+                "subtitle": "JalRaj",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 181538,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/bb4bf9644d86a44dc846ec0e6d83bbc05bf8ffa6"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:3vYk2VXjV8WFqadqzp1gtF",
+                "uid": "80fffb215d9330d2",
+                "title": "Tujh Mein Rab Dikhta Hai - LoFi Mix",
+                "subtitle": "Salim\u2013Sulaiman,\u00a0Roop Kumar Rathod,\u00a0Jaideep Sahni",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 195000,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/e42f14f1730af51b29a41d7d0c1a2e3a51d64deb"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:7bIwjRVi0Am0y2Rquj272r",
+                "uid": "28b72bec718bb269",
+                "title": "Tune Jo Na Kaha - LoFi Mix",
+                "subtitle": "Pritam,\u00a0Mohit Chauhan,\u00a0Sandeep Shrivastava",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 194221,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/5de64f7a7322a46dd566092be7b6bcc3cdf62836"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:6eF3jODUBew4DBD2xWZA4e",
+                "uid": "a15923e691ae6a3f",
+                "title": "Tera Fitoor (Lofi Mix)",
+                "subtitle": "Arijit Singh,\u00a0Abhimanyu-Pragya",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 173076,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/c708b3ebfd8c6d6b8d55af1c69f7f37df6e32630"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:67nxgDAXgyahpQ0DMqM6lW",
+                "uid": "873408bb6a1fab04",
+                "title": "Soniyo - Lofi Flip",
+                "subtitle": "Deepanshu Ruhela,\u00a0Sonu Nigam,\u00a0Shreya Ghoshal,\u00a0Neeraj Shridhar,\u00a0Raju Singh",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 203469,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/7a4cce0db74227ea61fae5ab9e3274387ad2c6a2"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:63QHoaekyoDm8dbtXJhGqA",
+                "uid": "d1af634f1aacc86e",
+                "title": "Tera Chehra - Lofi Mix",
+                "subtitle": "Arijit Singh,\u00a0Himesh Reshammiya,\u00a0Shabbir Ahmed,\u00a0Sameer Anjaan,\u00a0VIBIE",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 244571,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/8dfa4eaea30b4fd4fb1c9ba980e340f445788026"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:1gxmaTGnxEgZuV8485tevN",
+                "uid": "17bce36d2f85291b",
+                "title": "Alag Aasmaan (Acoustic)",
+                "subtitle": "Anuv Jain",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 211578,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/b93c554f54b3255f263ff9c4765311d5c6ce441a"
+                },
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:5wjFlSZO2jAlkAbPDXwF4O",
+                "uid": "a69e44aea23644ba",
+                "title": "Teri Jhuki Nazar - Lofi Flip",
+                "subtitle": "Kritiman Mishra,\u00a0Shafqat Amanat Ali,\u00a0Pritam,\u00a0Bollywood Lofi,\u00a0Sayeed Quadri",
+                "isExplicit": false,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": []
+                },
+                "duration": 182880,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "audioPreview": {
+                  "format": "MP3_96",
+                  "url": "https://p.scdn.co/mp3-preview/a95a2d4495262fdeabc54a2ff1f68c65f4d7062c"
+                },
+                "entityType": "track"
+              }
+            ],
+            "visualIdentity": {
+              "backgroundBase": {
+                "alpha": 255,
+                "blue": 163,
+                "green": 76,
+                "red": 52
+              },
+              "backgroundTintedBase": {
+                "alpha": 255,
+                "blue": 123,
+                "green": 38,
+                "red": 24
+              },
+              "textBase": {
+                "alpha": 255,
+                "blue": 255,
+                "green": 255,
+                "red": 255
+              },
+              "textBrightAccent": {
+                "alpha": 255,
+                "blue": 255,
+                "green": 255,
+                "red": 255
+              },
+              "textSubdued": {
+                "alpha": 255,
+                "blue": 255,
+                "green": 206,
+                "red": 182
+              },
+              "image": [
+                {
+                  "url": "https://image-cdn-ak.spotifycdn.com/image/ab67706c00006c11db57d46c1ca65e3fac2540dd",
+                  "maxHeight": 64,
+                  "maxWidth": 64
+                },
+                {
+                  "url": "https://image-cdn-ak.spotifycdn.com/image/ab67706c0000bebbdb57d46c1ca65e3fac2540dd",
+                  "maxHeight": 640,
+                  "maxWidth": 640
+                },
+                {
+                  "url": "https://image-cdn-ak.spotifycdn.com/image/ab67706c0000da84db57d46c1ca65e3fac2540dd",
+                  "maxHeight": 300,
+                  "maxWidth": 300
+                }
+              ]
+            },
+            "attributes": [],
+            "format": ""
+          },
+          "embeded_entity_uri": "spotify:playlist:5jYQ4O9Ii3tQcSbJMtVrk8",
+          "defaultAudioFileObject": {
+            "passthrough": "NONE"
+          }
+        },
+        "settings": {
+          "rtl": false,
+          "session": {
+            "accessToken": "BQBQlW1AkRulwxpMNRnHZjyEh4Mf0hfhqF9gvxNsvMLKtgBWpheB9NbiVurp4PJ3aAhGERSNL09nPFLtm2xGAMBszQoEFq-lLVrb43-sWjO_rVrFYb7_yxfK8NHUomsSE5HzCMaQIQI",
+            "accessTokenExpirationTimestampMs": 1779012048242,
+            "isAnonymous": true
+          },
+          "entityContext": "playlist",
+          "clientId": "ab9ad0d96a624805a7d51e8868df1f97",
+          "isMobile": false,
+          "isSafari": false,
+          "isIOS": false,
+          "isTablet": false,
+          "isDarkMode": false,
+          "isAudiobookLaunchedInGeoMarket": false
+        },
+        "machineState": {
+          "initialized": false,
+          "showOverflowMenu": false,
+          "playbackMode": "unknown",
+          "currentPreviewTrackIndex": 0,
+          "platformSupportsEncryptedContent": false
+        }
+      },
+      "config": {
+        "correlationId": "439f5bcb9351f80bbea15efb35c25f1e",
+        "strings": {
+          "en": {
+            "translation": {}
+          }
+        },
+        "locale": "en",
+        "clientId": "ab9ad0d96a624805a7d51e8868df1f97",
+        "restrictionId": ""
+      },
+      "_sentryTraceData": "bcae29d1bfb040e38a2eaf12f2cd778e-c182f652deb55173-0",
+      "_sentryBaggage": "sentry-environment=production,sentry-release=bf672b406a749cc86743c679750d029e0495b35b,sentry-public_key=4cc707ab12ea4779b417479c0550a5cb,sentry-trace_id=bcae29d1bfb040e38a2eaf12f2cd778e,sentry-org_id=22381,sentry-sampled=false,sentry-sample_rand=0.9042295216404646,sentry-sample_rate=0"
+    },
+    "__N_SSP": true
+  },
+  "page": "/playlist/[id]",
+  "query": {
+    "id": "5jYQ4O9Ii3tQcSbJMtVrk8"
+  },
+  "buildId": "10c9d5c6-69a1-4f97-94cd-7b352f4b2742",
+  "assetPrefix": "https://embed-cdn.spotifycdn.com",
+  "isFallback": false,
+  "isExperimentalCompile": false,
+  "gssp": true,
+  "scriptLoader": []
+}
