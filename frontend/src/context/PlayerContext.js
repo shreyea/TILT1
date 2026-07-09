@@ -64,11 +64,17 @@ export function PlayerProvider({ children }) {
 
   useEffect(() => {
     // Use 'doNotMix' for lock screen controls to work properly
-    setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: 'doNotMix',
-    });
+    (async () => {
+      try {
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
+          interruptionMode: 'doNotMix',
+        });
+      } catch (e) {
+        console.warn('setAudioModeAsync failed (non-fatal):', e);
+      }
+    })();
 
     return () => {
       if (soundRef.current) {

@@ -2,18 +2,26 @@ import axios from 'axios';
 import Constants from 'expo-constants';
 
 function getDevHost() {
-  const hostUri =
-    Constants.expoConfig?.hostUri ||
-    Constants.manifest2?.extra?.expoClient?.hostUri ||
-    Constants.manifest?.debuggerHost;
-  if (!hostUri) return null;
-  return hostUri.split(':')[0];
+  try {
+    const hostUri =
+      Constants.expoConfig?.hostUri ||
+      Constants.manifest2?.extra?.expoClient?.hostUri ||
+      Constants.manifest?.debuggerHost;
+    if (!hostUri) return null;
+    return hostUri.split(':')[0];
+  } catch (e) {
+    return null;
+  }
 }
 
 function getBaseUrl() {
-  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
-  const host = getDevHost();
-  return host ? `http://${host}:8000` : 'http://localhost:8000';
+  try {
+    if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+    const host = getDevHost();
+    return host ? `http://${host}:8000` : 'http://localhost:8000';
+  } catch (e) {
+    return 'http://localhost:8000';
+  }
 }
 
 const api = axios.create({

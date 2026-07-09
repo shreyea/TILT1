@@ -77,34 +77,46 @@ export default function HomeScreen({ navigation }) {
     return 'night';
   };
   const loadFeed = useCallback(async () => {
-    setLoadingTrending(true);
-    setLoadingReleases(true);
-    const [t, nr] = await Promise.all([
-      getTrending(15),
-      getNewReleases(10),
-    ]);
-    setTrending(t);
-    setNewReleases(nr);
-    setLoadingTrending(false);
-    setLoadingReleases(false);
-    // Auto-load time-appropriate mood
-    const autoMood = getTimeMood();
-    setSelectedMood(autoMood);
-    setLoadingMood(true);
-    const mt = await getMoodTracks(autoMood, 10);
-    setMoodTracks(mt);
-    setLoadingMood(false);
+    try {
+      setLoadingTrending(true);
+      setLoadingReleases(true);
+      const [t, nr] = await Promise.all([
+        getTrending(15),
+        getNewReleases(10),
+      ]);
+      setTrending(t || []);
+      setNewReleases(nr || []);
+      setLoadingTrending(false);
+      setLoadingReleases(false);
+      // Auto-load time-appropriate mood
+      const autoMood = getTimeMood();
+      setSelectedMood(autoMood);
+      setLoadingMood(true);
+      const mt = await getMoodTracks(autoMood, 10);
+      setMoodTracks(mt || []);
+      setLoadingMood(false);
+    } catch (e) {
+      console.warn('loadFeed failed (non-fatal):', e);
+      setLoadingTrending(false);
+      setLoadingReleases(false);
+      setLoadingMood(false);
+    }
   }, []);
   useEffect(() => { loadFeed(); }, [loadFeed]);
   useEffect(() => {
     async function loadRecs() {
-      if (history.length > 0) {
-        setLoadingRecs(true);
-        const ids = history.slice(0, 3).map(t => t.id).filter(Boolean);
-        if (ids.length > 0) {
-          const recs = await getRecommendations(ids);
-          setRecommendations(recs);
+      try {
+        if (history.length > 0) {
+          setLoadingRecs(true);
+          const ids = history.slice(0, 3).map(t => t.id).filter(Boolean);
+          if (ids.length > 0) {
+            const recs = await getRecommendations(ids);
+            setRecommendations(recs || []);
+          }
+          setLoadingRecs(false);
         }
+      } catch (e) {
+        console.warn('loadRecs failed:', e);
         setLoadingRecs(false);
       }
     }
@@ -113,30 +125,44 @@ export default function HomeScreen({ navigation }) {
   // Load artist-based recommendations from listening history
   useEffect(() => {
     async function loadArtistRecs() {
-      if (history.length > 0) {
-        const topArtist = history[0]?.artist?.split(',')[0]?.trim();
-        if (topArtist && topArtist !== artistBasedName) {
-          setArtistBasedName(topArtist);
-          const at = await getArtistTracks(topArtist, 8);
-          // Filter out tracks already in history
-          const histIds = new Set(history.map(h => h.id));
-          setArtistBasedTracks(at.filter(t => !histIds.has(t.id)).slice(0, 6));
+      try {
+        if (history.length > 0) {
+          const topArtist = history[0]?.artist?.split(',')[0]?.trim();
+          if (topArtist && topArtist !== artistBasedName) {
+            setArtistBasedName(topArtist);
+            const at = await getArtistTracks(topArtist, 8);
+            // Filter out tracks already in history
+            const histIds = new Set(history.map(h => h.id));
+            setArtistBasedTracks((at || []).filter(t => !histIds.has(t.id)).slice(0, 6));
+          }
         }
+      } catch (e) {
+        console.warn('loadArtistRecs failed:', e);
       }
     }
     loadArtistRecs();
   }, [history.length]);
   const handleMoodSelect = async (mood) => {
-    setSelectedMood(mood);
-    setLoadingMood(true);
-    const mt = await getMoodTracks(mood, 10);
-    setMoodTracks(mt);
-    setLoadingMood(false);
+    try {
+      setSelectedMood(mood);
+      setLoadingMood(true);
+      const mt = await getMoodTracks(mood, 10);
+      setMoodTracks(mt || []);
+      setLoadingMood(false);
+    } catch (e) {
+      console.warn('handleMoodSelect failed:', e);
+      setLoadingMood(false);
+    }
   };
   const onRefresh = async () => {
-    setRefreshing(true);
-    await loadFeed();
-    setRefreshing(false);
+    try {
+      setRefreshing(true);
+      await loadFeed();
+    } catch (e) {
+      console.warn('onRefresh failed:', e);
+    } finally {
+      setRefreshing(false);
+    }
   };
   const getGreeting = () => {
 
