@@ -15,7 +15,7 @@ import { SPACING, BORDER_RADIUS, FONT_SIZE } from '../theme';
 const { width: W } = Dimensions.get('window');
 
 // ─── Animated step indicator ─────────────────────────────────
-function StepDot({ active, done, label }) {
+function StepDot({ active, done, label, COLORS, s }) {
   return (
     <View style={{ alignItems: 'center', gap: 4 }}>
       <View style={[
@@ -36,7 +36,7 @@ function StepDot({ active, done, label }) {
 }
 
 // ─── Pulse loader ─────────────────────────────────────────────
-function PulseLoader() {
+function PulseLoader({ COLORS }) {
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.loop(
@@ -61,7 +61,7 @@ function PulseLoader() {
 }
 
 // ─── Track row for results ─────────────────────────────────
-function MiniTrack({ track, matched, status }) {
+function MiniTrack({ track, matched, status, COLORS, s }) {
   return (
     <View style={s.miniTrack}>
       {track.art_url ? (
@@ -247,7 +247,7 @@ export default function SpotifyImportScreen({ onClose, onPlaylistCreated }) {
         {/* Progress bar + steps */}
         {phase === 'fetching' && (
           <View style={s.progressSection}>
-            <PulseLoader />
+            <PulseLoader COLORS={COLORS} />
             <Text style={s.progressLabel}>Importing your playlist…</Text>
             <Text style={s.progressSub}>Fetching tracks from Spotify and matching to our catalog</Text>
             <View style={s.progressTrack}>
@@ -262,13 +262,13 @@ export default function SpotifyImportScreen({ onClose, onPlaylistCreated }) {
 
             {/* Step indicators */}
             <View style={s.stepsRow}>
-              <StepDot active={currentStep === 1} done={currentStep > 1} label="Fetch" />
+              <StepDot active={currentStep === 1} done={currentStep > 1} label="Fetch" COLORS={COLORS} s={s} />
               <View style={s.stepLine} />
-              <StepDot active={currentStep === 2} done={currentStep > 2} label="Match" />
+              <StepDot active={currentStep === 2} done={currentStep > 2} label="Match" COLORS={COLORS} s={s} />
               <View style={s.stepLine} />
-              <StepDot active={currentStep === 3} done={currentStep > 3} label="Create" />
+              <StepDot active={currentStep === 3} done={currentStep > 3} label="Create" COLORS={COLORS} s={s} />
               <View style={s.stepLine} />
-              <StepDot active={currentStep === 4} done={currentStep > 4} label="Done" />
+              <StepDot active={currentStep === 4} done={currentStep > 4} label="Done" COLORS={COLORS} s={s} />
             </View>
           </View>
         )}
@@ -354,7 +354,7 @@ export default function SpotifyImportScreen({ onClose, onPlaylistCreated }) {
                   <Ionicons name="checkmark-circle" size={14} color={COLORS.secondary} /> Matched Tracks
                 </Text>
                 {matched_tracks.slice(0, 8).map((t, i) => (
-                  <MiniTrack key={`m_${i}`} track={t} matched />
+                  <MiniTrack key={`m_${i}`} track={t} matched COLORS={COLORS} s={s} />
                 ))}
                 {matched_tracks.length > 8 && (
                   <Text style={s.moreText}>+{matched_tracks.length - 8} more matched</Text>
@@ -372,7 +372,7 @@ export default function SpotifyImportScreen({ onClose, onPlaylistCreated }) {
                   These tracks aren't in our catalog yet. They may be exclusive releases or regional content.
                 </Text>
                 {unmatched_tracks.slice(0, 5).map((t, i) => (
-                  <MiniTrack key={`u_${i}`} track={t} matched={false} />
+                  <MiniTrack key={`u_${i}`} track={t} matched={false} COLORS={COLORS} s={s} />
                 ))}
                 {unmatched_tracks.length > 5 && (
                   <Text style={s.moreText}>+{unmatched_tracks.length - 5} more unavailable</Text>
@@ -388,7 +388,7 @@ export default function SpotifyImportScreen({ onClose, onPlaylistCreated }) {
                   <Text style={s.tracksSectionTitle}>AI-Enhanced Picks</Text>
                 </View>
                 {recommendations.map((t, i) => (
-                  <MiniTrack key={`r_${i}`} track={t} matched />
+                  <MiniTrack key={`r_${i}`} track={t} matched COLORS={COLORS} s={s} />
                 ))}
               </View>
             )}

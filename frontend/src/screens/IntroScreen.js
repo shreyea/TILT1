@@ -59,24 +59,41 @@ export default function IntroScreen({ onComplete }) {
     }));
   }, []);
 
-  const createAnimStyle = (progress, bendAngle, fallDistance) => {
-    return useAnimatedStyle(() => {
-      return {
-        // Fade out as it reaches the bottom
-        opacity: interpolate(progress.value, [0, 0.7, 1], [1, 1, 0]),
-        transform: [
-          { translateY: interpolate(progress.value, [0, 1], [0, fallDistance]) },
-          { rotateZ: `${interpolate(progress.value, [0, 1], [0, bendAngle])}deg` },
-          { scale: interpolate(progress.value, [0, 1], [1, 0.7]) },
-        ],
-      };
-    });
-  };
+  const styleT1 = useAnimatedStyle(() => ({
+    opacity: interpolate(pT1.value, [0, 0.7, 1], [1, 1, 0]),
+    transform: [
+      { translateY: interpolate(pT1.value, [0, 1], [0, height * 0.4]) },
+      { rotateZ: `${interpolate(pT1.value, [0, 1], [0, 45])}deg` },
+      { scale: interpolate(pT1.value, [0, 1], [1, 0.7]) },
+    ],
+  }));
 
-  const styleT1 = createAnimStyle(pT1, 45, height * 0.4);
-  const styleSlash = createAnimStyle(pSlash, 60, height * 0.45);
-  const styleL = createAnimStyle(pL, 75, height * 0.38);
-  const styleT2 = createAnimStyle(pT2, 50, height * 0.4);
+  const styleSlash = useAnimatedStyle(() => ({
+    opacity: interpolate(pSlash.value, [0, 0.7, 1], [1, 1, 0]),
+    transform: [
+      { translateY: interpolate(pSlash.value, [0, 1], [0, height * 0.45]) },
+      { rotateZ: `${interpolate(pSlash.value, [0, 1], [0, 60])}deg` },
+      { scale: interpolate(pSlash.value, [0, 1], [1, 0.7]) },
+    ],
+  }));
+
+  const styleL = useAnimatedStyle(() => ({
+    opacity: interpolate(pL.value, [0, 0.7, 1], [1, 1, 0]),
+    transform: [
+      { translateY: interpolate(pL.value, [0, 1], [0, height * 0.38]) },
+      { rotateZ: `${interpolate(pL.value, [0, 1], [0, 75])}deg` },
+      { scale: interpolate(pL.value, [0, 1], [1, 0.7]) },
+    ],
+  }));
+
+  const styleT2 = useAnimatedStyle(() => ({
+    opacity: interpolate(pT2.value, [0, 0.7, 1], [1, 1, 0]),
+    transform: [
+      { translateY: interpolate(pT2.value, [0, 1], [0, height * 0.4]) },
+      { rotateZ: `${interpolate(pT2.value, [0, 1], [0, 50])}deg` },
+      { scale: interpolate(pT2.value, [0, 1], [1, 0.7]) },
+    ],
+  }));
 
   const containerStyle = useAnimatedStyle(() => {
     return {
