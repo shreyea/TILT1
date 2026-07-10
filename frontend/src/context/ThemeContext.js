@@ -1,16 +1,42 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+// src/context/ThemeContext.js
+// Provides theme colors and toggle. Persists selection via AsyncStorage.
+import React, { createContext, useContext, useState, useMemo, useEffect, useRef } from 'react';
 import { THEMES, getShadows } from '../theme';
+import * as Storage from '../services/StorageService';
 
 const ThemeContext = createContext();
 
+const THEME_CYCLE = ['Teal', 'Dusk', 'Dawn'];
+
 export function ThemeProvider({ children }) {
   const [themeName, setThemeName] = useState('Teal');
+  const initializedRef = useRef(false);
+
+  // Restore saved theme on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await Storage.getTheme();
+        if (saved && THEMES[saved]) {
+          setThemeName(saved);
+        }
+      } catch (e) {
+        console.warn('Failed to restore theme:', e);
+      }
+      initializedRef.current = true;
+    })();
+  }, []);
+
+  // Persist theme on change
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    Storage.saveTheme(themeName);
+  }, [themeName]);
 
   const toggleTheme = () => {
     setThemeName((prev) => {
-      if (prev === 'Teal') return 'Dusk';
-      if (prev === 'Dusk') return 'Dawn';
-      return 'Teal';
+      const idx = THEME_CYCLE.indexOf(prev);
+      return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
     });
   };
 

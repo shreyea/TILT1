@@ -1,5 +1,5 @@
 import { useTheme } from '../context/ThemeContext';
-import React, { useMemo,  useState, useCallback, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, FlatList, TouchableOpacity, ScrollView,
   StyleSheet, ActivityIndicator, StatusBar, Keyboard, Alert, Platform,
@@ -7,33 +7,46 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  searchSongs, toggleLike, getPlaylists, addToPlaylist,
-  createPlaylist, getArtistTracks
-} from '../api';
+import { searchSongs, getArtistTracks } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
+import * as Storage from '../services/StorageService';
+
 export default function SearchScreen() {
   const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
   const s = useMemo(() => createStyles(COLORS, SHADOWS), [COLORS, SHADOWS]);
-
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [artistTracks, setArtistTracks] = useState([]);
   const [artistName, setArtistName] = useState('');
+  
   const [loading, setLoading] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [searched, setSearched] = useState(false);
+  
   const [showActions, setShowActions] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [playlists, setPlaylists] = useState([]);
   const [showNewPlaylist, setShowNewPlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
+  
   const debounceRef = useRef(null);
+  const searchAbortControllerRef = useRef(null);
   const { playTrack, addToQueue, currentTrack, playAll } = usePlayer();
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (searchAbortControllerRef.current) {
+        searchAbortControllerRef.current.abort();
+      }
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   // ─── Live search suggestions as user types ───────────────
   const onQueryChange = useCallback((text) => {
     setQuery(text);
@@ -41,38 +54,51 @@ export default function SearchScreen() {
     // Clear previous debounce
     if (debounceRef.current) clearTimeout(debounceRef.current);
     
+    // Abort previous search if running
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+    }
+    
     if (text.trim().length < 2) {
       setSuggestions([]);
       setLoadingSuggestions(false);
       return;
     }
+    
     setLoadingSuggestions(true);
     debounceRef.current = setTimeout(async () => {
+      searchAbortControllerRef.current = new AbortController();
       try {
-        const data = await searchSongs(text.trim());
+        const data = await searchSongs(text.trim(), searchAbortControllerRef.current.signal);
         setSuggestions(data.slice(0, 5));
-      } catch {
-        setSuggestions([]);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          setSuggestions([]);
+        }
       } finally {
         setLoadingSuggestions(false);
       }
     }, 400);
   }, []);
-  // Cleanup debounce on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
+
   const handleSearch = useCallback(async () => {
     if (!query.trim() || query.trim().length < 2) return;
     Keyboard.dismiss();
+    
+    // Abort previous search
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+    }
+    searchAbortControllerRef.current = new AbortController();
+
     setLoading(true);
     setSearched(true);
     setSuggestions([]);
+    
     try {
-      const data = await searchSongs(query.trim());
+      const data = await searchSongs(query.trim(), searchAbortControllerRef.current.signal);
       setResults(data);
+      
       // Also try to get artist-based results
       const firstArtist = data[0]?.artist?.split(',')[0]?.trim();
       if (firstArtist) {
@@ -85,35 +111,51 @@ export default function SearchScreen() {
         setArtistTracks([]);
       }
     } catch (err) {
-      Alert.alert('Search Failed', 'Could not connect to the server. Make sure the backend is running.');
-      setResults([]);
+      if (err.name !== 'AbortError') {
+        Alert.alert('Search Failed', 'Could not connect to the server. Make sure the backend is running.');
+        setResults([]);
+      }
     } finally {
       setLoading(false);
     }
   }, [query]);
-  const handleSuggestionPress = (track) => {
 
+  const handleSuggestionPress = useCallback((track) => {
     setSuggestions([]);
     setQuery(track.title + ' ' + track.artist);
     playTrack(track);
-  };
-  const handleLongPress = async (track) => {
+  }, [playTrack]);
+
+  const handleLongPress = useCallback(async (track) => {
     setSelectedTrack(track);
-    const pls = await getPlaylists();
+    const pls = await Storage.getPlaylists();
     setPlaylists(pls);
     setShowActions(true);
-  };
-  const handleAddToPlaylist = async (playlistId) => {
+  }, []);
+
+  const handleAddToPlaylist = useCallback(async (playlistId) => {
     if (!selectedTrack) return;
-    await addToPlaylist(playlistId, selectedTrack);
+    
+    const existingTracks = await Storage.getPlaylistTracks(playlistId);
+    if (!existingTracks.find(t => t.id === selectedTrack.id)) {
+        const updatedTracks = [...existingTracks, selectedTrack];
+        await Storage.savePlaylistTracks(playlistId, updatedTracks);
+    }
+    
     setShowActions(false);
     Alert.alert('Added', `"${selectedTrack.title}" added to playlist.`);
-  };
-  const handleCreateAndAdd = async () => {
+  }, [selectedTrack]);
+
+  const handleCreateAndAdd = useCallback(async () => {
     if (!newPlaylistName.trim() || !selectedTrack) return;
     try {
-      const created = await createPlaylist(newPlaylistName.trim());
-      await addToPlaylist(created.id, selectedTrack);
+      const createdId = 'local_' + Date.now();
+      const newPlaylist = { id: createdId, name: newPlaylistName.trim(), track_count: 1 };
+      
+      const pls = await Storage.getPlaylists();
+      await Storage.savePlaylists([...pls, newPlaylist]);
+      await Storage.savePlaylistTracks(createdId, [selectedTrack]);
+
       setNewPlaylistName('');
       setShowNewPlaylist(false);
       setShowActions(false);
@@ -121,28 +163,63 @@ export default function SearchScreen() {
     } catch {
       Alert.alert('Error', 'Could not create playlist.');
     }
-  };
-  const handleLike = async () => {
+  }, [newPlaylistName, selectedTrack]);
+
+  const handleLike = useCallback(async () => {
     if (!selectedTrack) return;
-    const liked = await toggleLike(selectedTrack);
+    
+    const currentLiked = await Storage.getLikedSongs();
+    const isLiked = currentLiked.some(t => t.id === selectedTrack.id);
+    
+    let updated;
+    if (isLiked) {
+      updated = currentLiked.filter(t => t.id !== selectedTrack.id);
+    } else {
+      updated = [selectedTrack, ...currentLiked];
+    }
+    
+    await Storage.saveLikedSongs(updated);
+    
     setShowActions(false);
-    if (liked !== null) {
-      Alert.alert(liked ? 'Liked' : 'Removed', liked
+    Alert.alert(
+      !isLiked ? 'Liked' : 'Removed',
+      !isLiked 
         ? `"${selectedTrack.title}" added to Liked Songs.`
         : `"${selectedTrack.title}" removed from Liked Songs.`
-      );
-    }
-  };
-  const clearSearch = () => {
+    );
+  }, [selectedTrack]);
 
+  const clearSearch = useCallback(() => {
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+    }
     setQuery('');
     setResults([]);
     setSuggestions([]);
     setSearched(false);
     setArtistTracks([]);
     setArtistName('');
-  };
-  // ─── Render ──────────────────────────────────────────────
+  }, []);
+
+  const renderTrackItem = useCallback(({ item }) => (
+    <TrackItem 
+      track={item} 
+      onPress={playTrack} 
+      isPlaying={currentTrack?.id === item.id}
+      onLongPress={handleLongPress}
+      rightAction={
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => handleLongPress(item)} style={s.queueBtn}>
+            <Ionicons name="list" size={18} color={COLORS.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => addToQueue(item)} style={s.queueBtn}>
+            <Ionicons name="add" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+      }
+    />
+  ), [COLORS.primary, currentTrack?.id, handleLongPress, playTrack, addToQueue, s.queueBtn]);
+
   return (
     <View style={s.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
@@ -166,6 +243,7 @@ export default function SearchScreen() {
           )}
         </View>
       </LinearGradient>
+
       {/* Live suggestions dropdown */}
       {suggestions.length > 0 && !searched && (
         <View style={s.suggestionsBox}>
@@ -196,6 +274,7 @@ export default function SearchScreen() {
           </TouchableOpacity>
         </View>
       )}
+
       {loading ? (
         <View style={s.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
@@ -205,6 +284,10 @@ export default function SearchScreen() {
         <FlatList
           data={results}
           keyExtractor={i => i.id}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
           ListHeaderComponent={() => (
             <View style={s.resultsBar}>
               <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{results.length} results</Text>
@@ -216,21 +299,7 @@ export default function SearchScreen() {
               </TouchableOpacity>
             </View>
           )}
-          renderItem={({ item }) => (
-            <TrackItem track={item} onPress={playTrack} isPlaying={currentTrack?.id === item.id}
-              onLongPress={handleLongPress}
-              rightAction={
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                  <TouchableOpacity onPress={() => handleLongPress(item)} style={s.queueBtn}>
-                    <Ionicons name="list" size={18} color={COLORS.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => addToQueue(item)} style={s.queueBtn}>
-                    <Ionicons name="add" size={20} color={COLORS.primary} />
-                  </TouchableOpacity>
-                </View>
-              }
-            />
-          )}
+          renderItem={renderTrackItem}
           ListFooterComponent={() => (
             artistTracks.length > 0 ? (
               <View style={s.artistSection}>
@@ -267,6 +336,7 @@ export default function SearchScreen() {
           <Text style={s.emptySub}>{searched ? 'Try a different search' : 'Search any song and stream it instantly'}</Text>
         </View>
       )}
+
       {/* Track Actions Modal */}
       <Modal visible={showActions} transparent animationType="fade"
         onRequestClose={() => setShowActions(false)}>
@@ -286,6 +356,7 @@ export default function SearchScreen() {
                     <Ionicons name="list" size={22} color={COLORS.primary} />
                     <Text style={s.actionText}>Add to Queue</Text>
                   </TouchableOpacity>
+                  
                   <View style={s.actionDivider} />
                   <Text style={s.actionSectionLabel}>Add to Playlist</Text>
                   {playlists.map(pl => (
@@ -294,6 +365,7 @@ export default function SearchScreen() {
                       <Text style={s.actionText}>{pl.name}</Text>
                     </TouchableOpacity>
                   ))}
+                  
                   {/* Create new playlist inline */}
                   {showNewPlaylist ? (
                     <View style={s.inlineCreate}>
@@ -333,6 +405,7 @@ export default function SearchScreen() {
     </View>
   );
 }
+
 const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   header: { paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: 20, paddingBottom: 20 },

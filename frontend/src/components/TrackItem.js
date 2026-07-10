@@ -1,6 +1,7 @@
 import { useTheme } from '../context/ThemeContext';
 // src/components/TrackItem.js
 // Reusable track row component used in search results, playlists, and queue
+// Wrapped in React.memo with custom comparator for optimal re-render performance
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +14,7 @@ function formatDuration(ms) {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export default function TrackItem({
+function TrackItem({
   track,
   onPress,
   onLongPress,
@@ -25,10 +26,8 @@ export default function TrackItem({
   drag,
   isActive = false,
 }) {
-  const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
+  const { COLORS, SHADOWS } = useTheme();
   const s = useMemo(() => createStyles(COLORS, SHADOWS), [COLORS, SHADOWS]);
-
-
 
   return (
     <TouchableOpacity
@@ -100,6 +99,20 @@ export default function TrackItem({
     </TouchableOpacity>
   );
 }
+
+// Custom comparator — only re-render when these specific props change
+function areEqual(prev, next) {
+  return (
+    prev.track?.id === next.track?.id &&
+    prev.isPlaying === next.isPlaying &&
+    prev.isActive === next.isActive &&
+    prev.index === next.index &&
+    prev.compact === next.compact &&
+    prev.showIndex === next.showIndex
+  );
+}
+
+export default React.memo(TrackItem, areEqual);
 
 const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
   container: {
@@ -205,4 +218,3 @@ const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
     alignItems: 'center',
   },
 });
-

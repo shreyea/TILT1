@@ -1,38 +1,37 @@
 import { useTheme } from '../context/ThemeContext';
 // src/components/MiniPlayer.js
 // Persistent mini player shown at bottom of all screens above the tab bar
-import React, { useMemo,  useState, useEffect } from 'react';
+// Wrapped in React.memo for performance
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Image, StyleSheet,
-  Dimensions, Platform, ActivityIndicator
+  Dimensions, ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayer } from '../context/PlayerContext';
 import { toggleLike, checkLiked } from '../api';
-import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
+import { SPACING } from '../theme';
 
 const { width: W } = Dimensions.get('window');
 
-export default function MiniPlayer({ onPress, tabBarHeight = 68 }) {
-  const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
+function MiniPlayer({ onPress, tabBarHeight = 68 }) {
+  const { COLORS, SHADOWS } = useTheme();
   const s = useMemo(() => createStyles(COLORS, SHADOWS), [COLORS, SHADOWS]);
-
-
 
   const { currentTrack, isPlaying, isLoading, togglePlay, playNext, position, duration } = usePlayer();
   const [liked, setLiked] = useState(false);
 
   useEffect(() => {
     if (currentTrack?.id) {
-      checkLiked(currentTrack.id).then(setLiked);
+      checkLiked(currentTrack.id).then(setLiked).catch(() => {});
     }
   }, [currentTrack?.id]);
 
-  const handleLike = async () => {
+  const handleLike = useCallback(async () => {
     if (!currentTrack) return;
     const nowLiked = await toggleLike(currentTrack);
     if (nowLiked !== null) setLiked(nowLiked);
-  };
+  }, [currentTrack]);
 
   if (!currentTrack) return null;
 
@@ -96,6 +95,8 @@ export default function MiniPlayer({ onPress, tabBarHeight = 68 }) {
     </TouchableOpacity>
   );
 }
+
+export default React.memo(MiniPlayer);
 
 const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
   container: {

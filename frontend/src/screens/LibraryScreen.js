@@ -1,5 +1,5 @@
 import { useTheme } from '../context/ThemeContext';
-import React, { useMemo,  useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   StatusBar, TextInput, Alert, Modal, Platform, Image,
@@ -8,21 +8,16 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
-import { 
-  getPlaylists, getPlaylistTracks, createPlaylist, getLikedSongs, 
-  deletePlaylist, getRecommendations, searchSongs, addToPlaylist,
-  removeFromPlaylist, reorderPlaylistTracks, getTrending
-} from '../api';
+import { getRecommendations, searchSongs, getTrending } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
 import SpotifyImportScreen from './SpotifyImportScreen';
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
+import * as Storage from '../services/StorageService';
 
 export default function LibraryScreen() {
   const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
   const s = useMemo(() => createStyles(COLORS, SHADOWS), [COLORS, SHADOWS]);
-
-
 
   const [playlists, setPlaylists] = useState([]);
   const [likedSongs, setLikedSongs] = useState([]);
@@ -33,40 +28,55 @@ export default function LibraryScreen() {
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  
   const [showSpotifyImport, setShowSpotifyImport] = useState(false);
   const { playTrack, currentTrack, playAll, addToQueue } = usePlayer();
+  const searchAbortControllerRef = useRef(null);
 
+  // Load from Local Storage
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [pl, liked] = await Promise.all([getPlaylists(), getLikedSongs()]);
-      setPlaylists(pl);
-      setLikedSongs(liked);
+      const [pl, liked] = await Promise.all([
+        Storage.getPlaylists(),
+        Storage.getLikedSongs()
+      ]);
+      setPlaylists(pl || []);
+      setLikedSongs(liked || []);
     } catch (err) {
-      Alert.alert('Error', 'Could not load library. Check your connection.');
+      console.warn('Failed to load local library:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [loadData]);
+  
+  useEffect(() => {
+    return () => {
+      if (searchAbortControllerRef.current) {
+        searchAbortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
-  };
+  }, [loadData]);
 
   const loadTracks = useCallback(async (pl) => {
     setSelectedPlaylist(pl);
     try {
-      const data = await getPlaylistTracks(pl.id);
-      setTracks(data);
+      const data = await Storage.getPlaylistTracks(pl.id);
+      setTracks(data || []);
     } catch (err) {
       Alert.alert('Error', 'Could not load playlist tracks.');
       setTracks([]);
@@ -79,14 +89,16 @@ export default function LibraryScreen() {
     setIsSearching(true);
     try {
       if (!tracks || tracks.length === 0) {
-        // If playlist is empty, recommend trending tracks
         const trending = await getTrending(10);
-        setSuggestions(trending);
+        setSuggestions(trending || []);
       } else {
-        // Get up to 5 random seed tracks from the playlist
-        const seeds = tracks.slice(0, 5).map(t => t.spotify_id);
-        const recs = await getRecommendations(seeds);
-        setSuggestions(recs);
+        const seeds = tracks.slice(0, 5).map(t => t.id || t.spotify_id).filter(Boolean);
+        if (seeds.length > 0) {
+          const recs = await getRecommendations(seeds);
+          setSuggestions(recs || []);
+        } else {
+          setSuggestions([]);
+        }
       }
     } catch (e) {
       console.warn(e);
@@ -95,54 +107,104 @@ export default function LibraryScreen() {
     }
   }, [tracks]);
 
-  const handleSearch = async (text) => {
+  const handleSearch = useCallback(async (text) => {
     setSearchQuery(text);
+    
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+    }
+    
     if (text.length < 2) {
       setSearchResults([]);
       return;
     }
+    
     setIsSearching(true);
+    searchAbortControllerRef.current = new AbortController();
+    
     try {
-      const results = await searchSongs(text);
-      setSearchResults(results);
+      const results = await searchSongs(text, searchAbortControllerRef.current.signal);
+      setSearchResults(results || []);
     } catch (e) {
-      console.warn(e);
+      if (e.name !== 'AbortError') {
+        console.warn(e);
+      }
     } finally {
       setIsSearching(false);
     }
-  };
+  }, []);
 
-  const handleAddTrackToPlaylist = async (track) => {
+  const handleAddTrackToPlaylist = useCallback(async (track) => {
     if (!selectedPlaylist) return;
     try {
-      await addToPlaylist(selectedPlaylist.id, track);
-      // Reload tracks
-      const data = await getPlaylistTracks(selectedPlaylist.id);
-      setTracks(data);
-      Alert.alert('Added', `"${track.title}" added to playlist.`);
+      const existing = await Storage.getPlaylistTracks(selectedPlaylist.id);
+      if (!existing.find(t => t.id === track.id)) {
+        const updated = [...existing, track];
+        await Storage.savePlaylistTracks(selectedPlaylist.id, updated);
+        
+        // Update playlist track count
+        const allPls = await Storage.getPlaylists();
+        const plIndex = allPls.findIndex(p => p.id === selectedPlaylist.id);
+        if (plIndex >= 0) {
+          allPls[plIndex].track_count = updated.length;
+          // Set cover art if it's the first track
+          if (updated.length === 1) {
+             allPls[plIndex].cover_url = track.art_url_small || track.art_url;
+          }
+          await Storage.savePlaylists(allPls);
+          setPlaylists(allPls);
+        }
+        
+        setTracks(updated);
+        Alert.alert('Added', `"${track.title}" added to playlist.`);
+      } else {
+        Alert.alert('Already Added', `"${track.title}" is already in this playlist.`);
+      }
     } catch (e) {
       Alert.alert('Error', 'Failed to add track.');
     }
-  };
+  }, [selectedPlaylist]);
 
-  const handleRemoveTrack = async (trackDbId) => {
+  const handleRemoveTrack = useCallback(async (trackId) => {
+    if (!selectedPlaylist) return;
     try {
-      await removeFromPlaylist(trackDbId);
-      setTracks(prev => prev.filter(t => t.id !== trackDbId));
+      const existing = await Storage.getPlaylistTracks(selectedPlaylist.id);
+      const updated = existing.filter(t => t.id !== trackId);
+      await Storage.savePlaylistTracks(selectedPlaylist.id, updated);
+      
+      const allPls = await Storage.getPlaylists();
+      const plIndex = allPls.findIndex(p => p.id === selectedPlaylist.id);
+      if (plIndex >= 0) {
+        allPls[plIndex].track_count = updated.length;
+        if (updated.length === 0) {
+           allPls[plIndex].cover_url = null;
+        } else if (allPls[plIndex].cover_url === existing.find(t=>t.id===trackId)?.art_url_small) {
+           allPls[plIndex].cover_url = updated[0].art_url_small || updated[0].art_url;
+        }
+        await Storage.savePlaylists(allPls);
+        setPlaylists(allPls);
+      }
+      
+      setTracks(updated);
     } catch (e) {
       Alert.alert('Error', 'Failed to remove track.');
     }
-  };
+  }, [selectedPlaylist]);
 
   const handleCreate = useCallback(async () => {
     if (!newName.trim()) return;
     try {
-      await createPlaylist(newName.trim());
+      const id = 'local_' + Date.now();
+      const newPlaylist = { id, name: newName.trim(), track_count: 0 };
+      
+      const pls = await Storage.getPlaylists();
+      await Storage.savePlaylists([...pls, newPlaylist]);
+      
       setNewName('');
       setShowCreate(false);
       loadData();
     } catch (err) {
-      Alert.alert('Error', 'Could not create playlist. It may already exist.');
+      Alert.alert('Error', 'Could not create playlist.');
     }
   }, [newName, loadData]);
 
@@ -151,12 +213,36 @@ export default function LibraryScreen() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
-          await deletePlaylist(pl.id);
+          const pls = await Storage.getPlaylists();
+          await Storage.savePlaylists(pls.filter(p => p.id !== pl.id));
+          await Storage.removePlaylistTracks(pl.id);
           loadData();
         }
       },
     ]);
   }, [loadData]);
+  
+  // Memoized render items
+  const renderLikedSong = useCallback(({ item, index }) => (
+    <TrackItem
+      track={item}
+      onPress={() => playAll(likedSongs, index)}
+      isPlaying={currentTrack?.id === item.id}
+      showIndex={true} index={index}
+    />
+  ), [likedSongs, currentTrack?.id, playAll]);
+  
+  const renderSearchItem = useCallback(({ item }) => (
+    <TrackItem
+      track={item}
+      onPress={() => playTrack(item)}
+      rightAction={
+        <TouchableOpacity onPress={() => handleAddTrackToPlaylist(item)} style={s.addTrackBtn}>
+          <Ionicons name="add" size={20} color={COLORS.primary} />
+        </TouchableOpacity>
+      }
+    />
+  ), [playTrack, handleAddTrackToPlaylist, COLORS.primary, s.addTrackBtn]);
 
   // ─── Liked Songs View ──────────────────────────────────
   if (showLiked) {
@@ -183,14 +269,8 @@ export default function LibraryScreen() {
         </LinearGradient>
         <FlatList
           data={likedSongs} keyExtractor={i => String(i.id)}
-          renderItem={({ item, index }) => (
-            <TrackItem
-              track={{ ...item, id: item.spotify_id }}
-              onPress={() => playAll(likedSongs, index)}
-              isPlaying={currentTrack?.id === item.spotify_id}
-              showIndex={true} index={index}
-            />
-          )}
+          initialNumToRender={10} maxToRenderPerBatch={10} windowSize={5} removeClippedSubviews={true}
+          renderItem={renderLikedSong}
           contentContainerStyle={{ paddingBottom: 140 }}
           ListEmptyComponent={
             <View style={s.center}>
@@ -210,7 +290,7 @@ export default function LibraryScreen() {
       <View style={s.container}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
         <LinearGradient colors={[COLORS.primary + '40', COLORS.background]} style={s.plHeader}>
-          <TouchableOpacity onPress={() => setSelectedPlaylist(null)} style={s.backBtn}>
+          <TouchableOpacity onPress={() => { setSelectedPlaylist(null); loadData(); }} style={s.backBtn}>
             <Ionicons name="arrow-back" size={28} color="#FFF" />
           </TouchableOpacity>
           {/* Playlist cover */}
@@ -248,8 +328,7 @@ export default function LibraryScreen() {
           onDragEnd={async ({ data }) => {
             setTracks(data);
             try {
-              const ids = data.map(t => t.id);
-              await reorderPlaylistTracks(selectedPlaylist.id, ids);
+              await Storage.savePlaylistTracks(selectedPlaylist.id, data);
             } catch (e) {
               console.warn('Reorder failed', e);
             }
@@ -257,7 +336,7 @@ export default function LibraryScreen() {
           renderItem={({ item, drag, isActive, getIndex }) => (
             <ScaleDecorator>
               <TrackItem track={item} onPress={() => playAll(tracks, getIndex())}
-                isPlaying={currentTrack?.id === item.spotify_id}
+                isPlaying={currentTrack?.id === item.id}
                 drag={drag}
                 isActive={isActive}
                 rightAction={
@@ -300,7 +379,8 @@ export default function LibraryScreen() {
 
       <FlatList
         data={[{ type: 'liked' }, ...playlists.map(p => ({ type: 'playlist', ...p }))]}
-        keyExtractor={(item, i) => item.type === 'liked' ? 'liked' : String(item.id)}
+        keyExtractor={(item) => item.type === 'liked' ? 'liked' : String(item.id)}
+        initialNumToRender={10} maxToRenderPerBatch={10} windowSize={5} removeClippedSubviews={true}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh}
             tintColor={COLORS.primary} colors={[COLORS.primary]} />
@@ -395,6 +475,7 @@ export default function LibraryScreen() {
             <FlatList
               data={searchQuery.length >= 2 ? searchResults : suggestions}
               keyExtractor={(item, index) => item.id + '_' + index}
+              initialNumToRender={10} maxToRenderPerBatch={10} windowSize={5} removeClippedSubviews={true}
               ListHeaderComponent={() => (
                 <View style={{ paddingVertical: 10 }}>
                   <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '600' }}>
@@ -402,17 +483,7 @@ export default function LibraryScreen() {
                   </Text>
                 </View>
               )}
-              renderItem={({ item }) => (
-                <TrackItem
-                  track={item}
-                  onPress={() => playTrack(item)}
-                  rightAction={
-                    <TouchableOpacity onPress={() => handleAddTrackToPlaylist(item)} style={s.addTrackBtn}>
-                      <Ionicons name="add" size={20} color={COLORS.primary} />
-                    </TouchableOpacity>
-                  }
-                />
-              )}
+              renderItem={renderSearchItem}
               contentContainerStyle={{ paddingBottom: 40 }}
               ListEmptyComponent={() => (
                 <View style={s.center}>
@@ -436,8 +507,6 @@ export default function LibraryScreen() {
           onPlaylistCreated={async (playlist) => {
             setShowSpotifyImport(false);
             await loadData();
-            // Navigate directly into the imported playlist
-            loadTracks(playlist);
           }}
         />
       </Modal>

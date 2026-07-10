@@ -2,9 +2,11 @@
 // Global audio player state — manages current track, queue, playback, repeat, shuffle
 // Includes audio settings: crossfade, playback speed, bass boost (volume amplification)
 // Includes lock screen / notification controls for background playback
+// Persists: audio settings, history, queue, last track via StorageService
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { getStreamUrl } from '../api';
+import * as Storage from '../services/StorageService';
 
 const PlayerContext = createContext(null);
 
@@ -42,23 +44,121 @@ export function PlayerProvider({ children }) {
   const fadeInTimerRef = useRef(null);
   const currentTrackRef = useRef(null);
   const playLockRef = useRef(0); // Prevents double-play race conditions
+  const isLoadingRef = useRef(false); // Prevents status callback from overriding isPlaying during load
+
   // Use refs to avoid stale closures in callbacks
   const queueRef = useRef(queue);
   const repeatModeRef = useRef(repeatMode);
   const shuffleOnRef = useRef(shuffleOn);
   const crossfadeRef = useRef(crossfadeDuration);
+  const volumeRef = useRef(volume);
+  const bassBoostRef = useRef(bassBoostOn);
 
   // Keep refs in sync
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
   useEffect(() => { shuffleOnRef.current = shuffleOn; }, [shuffleOn]);
   useEffect(() => { crossfadeRef.current = crossfadeDuration; }, [crossfadeDuration]);
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
+  useEffect(() => { bassBoostRef.current = bassBoostOn; }, [bassBoostOn]);
 
   // Refs to avoid stale closures
   const positionRef = useRef(position);
   const historyRef = useRef(history);
   useEffect(() => { positionRef.current = position; }, [position]);
   useEffect(() => { historyRef.current = history; }, [history]);
+
+  // ─── Restore Persisted State ────────────────────────────
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    (async () => {
+      try {
+        const [savedSettings, savedHistory, savedQueue, savedLastTrack] = await Promise.all([
+          Storage.getAudioSettings(),
+          Storage.getHistory(),
+          Storage.getQueue(),
+          Storage.getLastTrack(),
+        ]);
+
+        if (savedSettings) {
+          setVolume(savedSettings.volume ?? 1.0);
+          setCrossfadeDuration(savedSettings.crossfadeDuration ?? 0);
+          setPlaybackSpeed(savedSettings.playbackSpeed ?? 1.0);
+          setBassBoostOn(savedSettings.bassBoostOn ?? false);
+          setFadeInEnabled(savedSettings.fadeInEnabled ?? false);
+        }
+
+        if (savedHistory?.length > 0) {
+          setHistory(savedHistory);
+        }
+
+        if (savedQueue?.length > 0) {
+          setQueue(savedQueue);
+          fullQueueRef.current = savedQueue;
+        }
+
+        if (savedLastTrack) {
+          setCurrentTrack(savedLastTrack);
+          currentTrackRef.current = savedLastTrack;
+        }
+      } catch (e) {
+        console.warn('Failed to restore persisted state:', e);
+      }
+    })();
+  }, []);
+
+  // ─── Persist on Change ──────────────────────────────────
+
+  // Debounce timer refs for persistence
+  const persistHistoryTimer = useRef(null);
+  const persistQueueTimer = useRef(null);
+  const persistSettingsTimer = useRef(null);
+
+  // Persist history (debounced)
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    clearTimeout(persistHistoryTimer.current);
+    persistHistoryTimer.current = setTimeout(() => {
+      Storage.saveHistory(history);
+    }, 1000);
+    return () => clearTimeout(persistHistoryTimer.current);
+  }, [history]);
+
+  // Persist queue (debounced)
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    clearTimeout(persistQueueTimer.current);
+    persistQueueTimer.current = setTimeout(() => {
+      Storage.saveQueue(queue);
+    }, 1000);
+    return () => clearTimeout(persistQueueTimer.current);
+  }, [queue]);
+
+  // Persist current track
+  useEffect(() => {
+    if (!initializedRef.current || !currentTrack) return;
+    Storage.saveLastTrack(currentTrack);
+  }, [currentTrack]);
+
+  // Persist audio settings (debounced)
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    clearTimeout(persistSettingsTimer.current);
+    persistSettingsTimer.current = setTimeout(() => {
+      Storage.saveAudioSettings({
+        volume,
+        crossfadeDuration,
+        playbackSpeed,
+        bassBoostOn,
+        fadeInEnabled,
+      });
+    }, 500);
+    return () => clearTimeout(persistSettingsTimer.current);
+  }, [volume, crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled]);
 
   // ─── Audio Setup ─────────────────────────────────────────
 
@@ -80,7 +180,7 @@ export function PlayerProvider({ children }) {
       if (soundRef.current) {
         try {
           soundRef.current.pause();
-          soundRef.current.remove();
+          soundRef.current.release();
         } catch (e) {
           console.warn('Cleanup error:', e);
         }
@@ -124,28 +224,28 @@ export function PlayerProvider({ children }) {
       step++;
       const newVol = Math.max(0, 1 - (step / steps));
       try {
-        oldSound.volume = newVol * volume;
+        oldSound.volume = newVol * volumeRef.current;
       } catch (e) {
-        // Sound may already be removed
+        // Sound may already be released
       }
       
       if (step >= steps) {
         clearInterval(timer);
-        try { oldSound.remove(); } catch (e) {}
+        try { oldSound.release(); } catch (e) {}
         crossfadeTimerRef.current = null;
       }
     }, stepMs);
-  }, [volume]);
+  }, []);
 
   // Fade-in effect for new tracks
   const applyFadeIn = useCallback((newSound) => {
-    if (!fadeInEnabled || !newSound) return;
+    if (!newSound) return;
     
     const fadeMs = 2000; // 2 second fade-in
     const steps = 20;
     const stepMs = fadeMs / steps;
     let step = 0;
-    const targetVol = bassBoostOn ? Math.min(volume * 1.3, 1.0) : volume;
+    const targetVol = bassBoostRef.current ? Math.min(volumeRef.current * 1.3, 1.0) : volumeRef.current;
     
     newSound.volume = 0;
     
@@ -160,7 +260,7 @@ export function PlayerProvider({ children }) {
         fadeInTimerRef.current = null;
       }
     }, stepMs);
-  }, [fadeInEnabled, volume, bassBoostOn]);
+  }, []);
 
   // ─── Play a Track ────────────────────────────────────────
 
@@ -170,6 +270,7 @@ export function PlayerProvider({ children }) {
     
     setError(null);
     setIsLoading(true);
+    isLoadingRef.current = true;
     setCurrentTrack(track);
     currentTrackRef.current = track;
 
@@ -189,10 +290,10 @@ export function PlayerProvider({ children }) {
         try {
           soundRef.current.pause();
           if (!isCrossfading) {
-            soundRef.current.remove();
+            soundRef.current.release();
           }
         } catch (e) {
-          console.warn('Failed to remove previous sound:', e);
+          console.warn('Failed to release previous sound:', e);
         }
         if (!isCrossfading) soundRef.current = null;
       }
@@ -209,14 +310,15 @@ export function PlayerProvider({ children }) {
 
       // Double-check: stop any sound that might have started during the async gap
       if (soundRef.current && !isCrossfading) {
-        try { soundRef.current.pause(); soundRef.current.remove(); } catch (e) {}
+        try { soundRef.current.pause(); soundRef.current.release(); } catch (e) {}
         soundRef.current = null;
       }
 
-      const sound = createAudioPlayer(streamData.url, { updateInterval: 500 });
+      // FIX: Use { uri: ... } for remote audio sources
+      const sound = createAudioPlayer({ uri: streamData.url }, { updateInterval: 500 });
       
       // Apply audio settings
-      const effectiveVol = bassBoostOn ? Math.min(volume * 1.3, 1.0) : volume;
+      const effectiveVol = bassBoostRef.current ? Math.min(volumeRef.current * 1.3, 1.0) : volumeRef.current;
       sound.volume = fadeInEnabled ? 0 : effectiveVol;
       
       // Apply playback speed
@@ -230,6 +332,7 @@ export function PlayerProvider({ children }) {
       soundRef.current = sound;
       setIsPlaying(true);
       setIsLoading(false);
+      isLoadingRef.current = false;
 
       // Enable notification / lock screen controls
       enableLockScreenControls(sound, track);
@@ -246,6 +349,7 @@ export function PlayerProvider({ children }) {
       console.error('Play failed:', e);
       setError(`Failed to play "${track.title}"`);
       setIsLoading(false);
+      isLoadingRef.current = false;
       setIsPlaying(false);
     }
   };
@@ -300,8 +404,9 @@ export function PlayerProvider({ children }) {
     setPosition(posMs);
     setDuration(durMs);
     
-    // Only update isPlaying from status if we're not in a loading state
-    if (typeof status.playing === 'boolean') {
+    // FIX: Don't let status updates override isPlaying while we're loading
+    // This prevents the buffering false → true flicker that kills playback state
+    if (typeof status.playing === 'boolean' && !isLoadingRef.current) {
       setIsPlaying(status.playing);
     }
 
@@ -349,10 +454,10 @@ export function PlayerProvider({ children }) {
   const changeVolume = useCallback(async (vol) => {
     setVolume(vol);
     if (soundRef.current) {
-      const effectiveVol = bassBoostOn ? Math.min(vol * 1.3, 1.0) : vol;
+      const effectiveVol = bassBoostRef.current ? Math.min(vol * 1.3, 1.0) : vol;
       soundRef.current.volume = effectiveVol;
     }
-  }, [bassBoostOn]);
+  }, []);
 
   const playNext = useCallback(() => {
     const q = queueRef.current;
@@ -442,10 +547,10 @@ export function PlayerProvider({ children }) {
   const toggleBassBoost = useCallback((enabled) => {
     setBassBoostOn(enabled);
     if (soundRef.current) {
-      const effectiveVol = enabled ? Math.min(volume * 1.3, 1.0) : volume;
+      const effectiveVol = enabled ? Math.min(volumeRef.current * 1.3, 1.0) : volumeRef.current;
       soundRef.current.volume = effectiveVol;
     }
-  }, [volume]);
+  }, []);
 
   const toggleFadeIn = useCallback((enabled) => {
     setFadeInEnabled(enabled);

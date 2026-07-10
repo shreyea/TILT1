@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, Platform, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -16,6 +16,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { PlayerProvider } from './src/context/PlayerContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import * as Storage from './src/services/StorageService';
 
 const Tab = createBottomTabNavigator();
 
@@ -119,10 +120,27 @@ function Tabs() {
 function AppContent() {
   const { COLORS } = useTheme();
   const [showNowPlaying, setShowNowPlaying] = useState(false);
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, setShowIntro] = useState(null); // null = loading, true/false = resolved
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 0);
   const tabBarHeight = 56 + bottomPad;
+
+  // Load intro shown state from persistent storage
+  useEffect(() => {
+    (async () => {
+      try {
+        const introShown = await Storage.getIntroShown();
+        setShowIntro(!introShown); // Show intro if NOT previously shown
+      } catch (e) {
+        setShowIntro(false); // On error, skip intro
+      }
+    })();
+  }, []);
+
+  const handleIntroComplete = () => {
+    setShowIntro(false);
+    Storage.saveIntroShown(true); // Persist — never show again
+  };
   
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
@@ -131,7 +149,7 @@ function AppContent() {
   return (
     <View style={styles.container}>
       <Tabs />
-      {showIntro && <IntroScreen onComplete={() => setShowIntro(false)} />}
+      {showIntro === true && <IntroScreen onComplete={handleIntroComplete} />}
       <MiniPlayer
         onPress={() => setShowNowPlaying(true)}
         tabBarHeight={tabBarHeight}

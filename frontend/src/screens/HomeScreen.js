@@ -1,5 +1,5 @@
 import { useTheme } from '../context/ThemeContext';
-import React, { useMemo,  useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, ScrollView, StyleSheet,
   StatusBar, TouchableOpacity, ActivityIndicator, Platform, Image,
@@ -11,6 +11,8 @@ import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
 import { getRecommendations, getTrending, getNewReleases, getMoodTracks, getArtistTracks, getPlaylists, addToPlaylist, createPlaylist } from '../api';
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
+import * as Storage from '../services/StorageService';
+
 const MOOD_CARDS = [
   { key: 'morning', label: 'Morning Chill', icon: 'sunny-outline', gradient: ['#F59E0B', '#D97706'] },
   { key: 'workout', label: 'Workout', icon: 'barbell-outline', gradient: ['#EF4444', '#DC2626'] },
@@ -19,10 +21,10 @@ const MOOD_CARDS = [
   { key: 'party', label: 'Party Mode', icon: 'sparkles-outline', gradient: ['#EC4899', '#DB2777'] },
   { key: 'relax', label: 'Relax', icon: 'leaf-outline', gradient: ['#8B5CF6', '#7C3AED'] },
 ];
+
 export default function HomeScreen({ navigation }) {
   const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
   const s = useMemo(() => createStyles(COLORS, SHADOWS), [COLORS, SHADOWS]);
-
 
   const { history, playTrack, addToQueue, currentTrack, playAll } = usePlayer();
   const [recommendations, setRecommendations] = useState([]);
@@ -30,36 +32,71 @@ export default function HomeScreen({ navigation }) {
   const [newReleases, setNewReleases] = useState([]);
   const [moodTracks, setMoodTracks] = useState([]);
   const [selectedMood, setSelectedMood] = useState(null);
+  
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [loadingTrending, setLoadingTrending] = useState(true);
   const [loadingReleases, setLoadingReleases] = useState(true);
   const [loadingMood, setLoadingMood] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  
   const [artistBasedTracks, setArtistBasedTracks] = useState([]);
   const [artistBasedName, setArtistBasedName] = useState('');
+  
   // Playlist Modal State
   const [showActions, setShowActions] = useState(false);
   const [playlists, setPlaylists] = useState([]);
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [showNewPlaylist, setShowNewPlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
-  const handleLongPress = async (track) => {
+
+  const handleLongPress = useCallback(async (track) => {
     setSelectedTrack(track);
-    const pls = await getPlaylists();
+    const pls = await Storage.getPlaylists();
     setPlaylists(pls);
     setShowActions(true);
-  };
-  const handleAddToPlaylist = async (playlistId) => {
+  }, []);
+
+  const handleAddToPlaylist = useCallback(async (playlistId) => {
     if (!selectedTrack) return;
-    await addToPlaylist(playlistId, selectedTrack);
+    
+    // Get existing tracks
+    const existingTracks = await Storage.getPlaylistTracks(playlistId);
+    // Check if already in playlist
+    if (!existingTracks.find(t => t.id === selectedTrack.id)) {
+        const updatedTracks = [...existingTracks, selectedTrack];
+        await Storage.savePlaylistTracks(playlistId, updatedTracks);
+    }
+    
+    // Also update backend if still using it for some sync, but we use Storage primarily now as per requirement
+    try {
+        await addToPlaylist(playlistId, selectedTrack);
+    } catch (e) {
+        // Silently fail backend sync
+    }
+
     setShowActions(false);
     Alert.alert('Added', `"${selectedTrack.title}" added to playlist.`);
-  };
-  const handleCreateAndAdd = async () => {
+  }, [selectedTrack]);
+
+  const handleCreateAndAdd = useCallback(async () => {
     if (!newPlaylistName.trim() || !selectedTrack) return;
     try {
-      const created = await createPlaylist(newPlaylistName.trim());
-      await addToPlaylist(created.id, selectedTrack);
+      // Create locally
+      let createdId;
+      try {
+        // Try backend first to get a real ID if possible
+        const created = await createPlaylist(newPlaylistName.trim());
+        createdId = created.id;
+      } catch (e) {
+        // Fallback to local only ID
+        createdId = 'local_' + Date.now();
+      }
+
+      const newPlaylist = { id: createdId, name: newPlaylistName.trim(), track_count: 1 };
+      const pls = await Storage.getPlaylists();
+      await Storage.savePlaylists([...pls, newPlaylist]);
+      await Storage.savePlaylistTracks(createdId, [selectedTrack]);
+
       setNewPlaylistName('');
       setShowNewPlaylist(false);
       setShowActions(false);
@@ -67,15 +104,16 @@ export default function HomeScreen({ navigation }) {
     } catch {
       Alert.alert('Error', 'Could not create playlist.');
     }
-  };
-  const getTimeMood = () => {
+  }, [newPlaylistName, selectedTrack]);
 
+  const getTimeMood = useCallback(() => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 10) return 'morning';
     if (hour >= 10 && hour < 17) return 'focus';
-    if (hour >= 17 && hour < 21) return 'happy';
+    if (hour >= 17 && hour < 21) return 'party';
     return 'night';
-  };
+  }, []);
+
   const loadFeed = useCallback(async () => {
     try {
       setLoadingTrending(true);
@@ -88,6 +126,7 @@ export default function HomeScreen({ navigation }) {
       setNewReleases(nr || []);
       setLoadingTrending(false);
       setLoadingReleases(false);
+      
       // Auto-load time-appropriate mood
       const autoMood = getTimeMood();
       setSelectedMood(autoMood);
@@ -101,8 +140,10 @@ export default function HomeScreen({ navigation }) {
       setLoadingReleases(false);
       setLoadingMood(false);
     }
-  }, []);
+  }, [getTimeMood]);
+
   useEffect(() => { loadFeed(); }, [loadFeed]);
+
   useEffect(() => {
     async function loadRecs() {
       try {
@@ -122,6 +163,7 @@ export default function HomeScreen({ navigation }) {
     }
     loadRecs();
   }, [history.length]);
+
   // Load artist-based recommendations from listening history
   useEffect(() => {
     async function loadArtistRecs() {
@@ -141,8 +183,9 @@ export default function HomeScreen({ navigation }) {
       }
     }
     loadArtistRecs();
-  }, [history.length]);
-  const handleMoodSelect = async (mood) => {
+  }, [history.length, artistBasedName]);
+
+  const handleMoodSelect = useCallback(async (mood) => {
     try {
       setSelectedMood(mood);
       setLoadingMood(true);
@@ -153,8 +196,9 @@ export default function HomeScreen({ navigation }) {
       console.warn('handleMoodSelect failed:', e);
       setLoadingMood(false);
     }
-  };
-  const onRefresh = async () => {
+  }, []);
+
+  const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
       await loadFeed();
@@ -163,15 +207,75 @@ export default function HomeScreen({ navigation }) {
     } finally {
       setRefreshing(false);
     }
-  };
-  const getGreeting = () => {
+  }, [loadFeed]);
 
+  const getGreeting = useCallback(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning';
     if (hour < 18) return 'Good Afternoon';
     return 'Good Evening';
-  };
-  const moodLabel = MOOD_CARDS.find(m => m.key === selectedMood)?.label || 'For You';
+  }, []);
+
+  const moodLabel = useMemo(() => MOOD_CARDS.find(m => m.key === selectedMood)?.label || 'For You', [selectedMood]);
+
+  // Memoized Render Items
+  const renderTrackCard = useCallback(({ item }) => (
+    <TouchableOpacity style={s.trackCard} activeOpacity={0.7} onPress={() => playTrack(item)}>
+      <View style={s.trackCardArtWrap}>
+        {item.art_url ? (
+          <Image source={{ uri: item.art_url }} style={s.trackCardArt} />
+        ) : (
+          <View style={[s.trackCardArt, s.trackCardArtPlaceholder]}>
+            <Ionicons name="musical-notes" size={36} color={COLORS.textMuted} />
+          </View>
+        )}
+      </View>
+      <Text style={s.trackCardTitle} numberOfLines={1}>{item.title}</Text>
+      <Text style={s.trackCardArtist} numberOfLines={1}>{item.artist}</Text>
+    </TouchableOpacity>
+  ), [COLORS.textMuted, playTrack, s]);
+
+  const renderTrendingTrack = useCallback((item, i) => (
+    <TrackItem
+      key={'trend_' + item.id + '_' + i}
+      track={item}
+      onPress={playTrack}
+      isPlaying={currentTrack?.id === item.id}
+      showIndex={true} index={i}
+      onLongPress={handleLongPress}
+      rightAction={
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => handleLongPress(item)} style={s.addBtn}>
+            <Ionicons name="list" size={16} color={COLORS.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => addToQueue(item)} style={s.addBtn}>
+            <Ionicons name="add" size={18} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+      }
+    />
+  ), [COLORS.primary, currentTrack?.id, handleLongPress, playTrack, addToQueue, s]);
+
+  const renderRecommendationTrack = useCallback((item) => (
+    <TrackItem
+      key={'rec_' + item.id}
+      track={item}
+      onPress={playTrack}
+      isPlaying={currentTrack?.id === item.id}
+      onLongPress={handleLongPress}
+      rightAction={
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => handleLongPress(item)} style={s.addBtn}>
+            <Ionicons name="list" size={16} color={COLORS.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => addToQueue(item)} style={s.addBtn}>
+            <Ionicons name="add" size={18} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+      }
+    />
+  ), [COLORS.primary, currentTrack?.id, handleLongPress, playTrack, addToQueue, s]);
+
   return (
     <View style={s.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
@@ -198,6 +302,7 @@ export default function HomeScreen({ navigation }) {
             <Ionicons name="color-palette-outline" size={24} color={COLORS.textSecondary} />
           </TouchableOpacity>
         </LinearGradient>
+
         {/* Mood Chips */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Your Mood</Text>
@@ -219,6 +324,7 @@ export default function HomeScreen({ navigation }) {
             ))}
           </ScrollView>
         </View>
+
         {/* Mood Tracks */}
         {selectedMood && (
           <View style={s.section}>
@@ -241,25 +347,16 @@ export default function HomeScreen({ navigation }) {
                 horizontal showsHorizontalScrollIndicator={false}
                 keyExtractor={(item) => 'mood_' + item.id}
                 contentContainerStyle={{ paddingHorizontal: SPACING.xl, gap: SPACING.lg }}
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={s.trackCard} activeOpacity={0.7} onPress={() => playTrack(item)}>
-                    <View style={s.trackCardArtWrap}>
-                      {item.art_url ? (
-                        <Image source={{ uri: item.art_url }} style={s.trackCardArt} />
-                      ) : (
-                        <View style={[s.trackCardArt, s.trackCardArtPlaceholder]}>
-                          <Ionicons name="musical-notes" size={36} color={COLORS.textMuted} />
-                        </View>
-                      )}
-                    </View>
-                    <Text style={s.trackCardTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={s.trackCardArtist} numberOfLines={1}>{item.artist}</Text>
-                  </TouchableOpacity>
-                )}
+                renderItem={renderTrackCard}
+                initialNumToRender={4}
+                maxToRenderPerBatch={4}
+                windowSize={3}
+                removeClippedSubviews={true}
               />
             )}
           </View>
         )}
+
         {/* Recently Played */}
         {history.length > 0 && (
           <View style={s.section}>
@@ -269,24 +366,15 @@ export default function HomeScreen({ navigation }) {
               horizontal showsHorizontalScrollIndicator={false}
               keyExtractor={(item, i) => 'recent_' + item.id + '_' + i}
               contentContainerStyle={{ paddingHorizontal: SPACING.xl, gap: SPACING.lg }}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={s.trackCard} activeOpacity={0.7} onPress={() => playTrack(item)}>
-                  <View style={s.trackCardArtWrap}>
-                    {item.art_url ? (
-                      <Image source={{ uri: item.art_url }} style={s.trackCardArt} />
-                    ) : (
-                      <View style={[s.trackCardArt, s.trackCardArtPlaceholder]}>
-                        <Ionicons name="musical-notes" size={36} color={COLORS.textMuted} />
-                      </View>
-                    )}
-                  </View>
-                  <Text style={s.trackCardTitle} numberOfLines={1}>{item.title}</Text>
-                  <Text style={s.trackCardArtist} numberOfLines={1}>{item.artist}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={renderTrackCard}
+              initialNumToRender={4}
+              maxToRenderPerBatch={4}
+              windowSize={3}
+              removeClippedSubviews={true}
             />
           </View>
         )}
+
         {/* Trending */}
         <View style={s.section}>
           <View style={s.sectionHeader}>
@@ -303,27 +391,10 @@ export default function HomeScreen({ navigation }) {
           {loadingTrending ? (
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
           ) : (
-            trending.slice(0, 5).map((item, i) => (
-              <TrackItem
-                key={'trend_' + item.id + '_' + i}
-                track={item}
-                onPress={playTrack}
-                isPlaying={currentTrack?.id === item.id}
-                showIndex={true} index={i}
-                rightAction={
-                  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => handleLongPress(item)} style={s.addBtn}>
-                      <Ionicons name="list" size={16} color={COLORS.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => addToQueue(item)} style={s.addBtn}>
-                      <Ionicons name="add" size={18} color={COLORS.primary} />
-                    </TouchableOpacity>
-                  </View>
-                }
-              />
-            ))
+            trending.slice(0, 5).map((item, i) => renderTrendingTrack(item, i))
           )}
         </View>
+
         {/* New Releases */}
         {newReleases.length > 0 && (
           <View style={s.section}>
@@ -333,24 +404,15 @@ export default function HomeScreen({ navigation }) {
               horizontal showsHorizontalScrollIndicator={false}
               keyExtractor={(item) => 'new_' + item.id}
               contentContainerStyle={{ paddingHorizontal: SPACING.xl, gap: SPACING.lg }}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={s.trackCard} activeOpacity={0.7} onPress={() => playTrack(item)}>
-                  <View style={s.trackCardArtWrap}>
-                    {item.art_url ? (
-                      <Image source={{ uri: item.art_url }} style={s.trackCardArt} />
-                    ) : (
-                      <View style={[s.trackCardArt, s.trackCardArtPlaceholder]}>
-                        <Ionicons name="disc-outline" size={36} color={COLORS.textMuted} />
-                      </View>
-                    )}
-                  </View>
-                  <Text style={s.trackCardTitle} numberOfLines={1}>{item.title}</Text>
-                  <Text style={s.trackCardArtist} numberOfLines={1}>{item.artist}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={renderTrackCard}
+              initialNumToRender={4}
+              maxToRenderPerBatch={4}
+              windowSize={3}
+              removeClippedSubviews={true}
             />
           </View>
         )}
+
         {/* Recommended For You */}
         {recommendations.length > 0 && (
           <View style={s.section}>
@@ -366,27 +428,11 @@ export default function HomeScreen({ navigation }) {
             {loadingRecs ? (
               <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
             ) : (
-              recommendations.slice(0, 5).map((item) => (
-                <TrackItem
-                  key={'rec_' + item.id}
-                  track={item}
-                  onPress={playTrack}
-                  isPlaying={currentTrack?.id === item.id}
-                  rightAction={
-                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                      <TouchableOpacity onPress={() => handleLongPress(item)} style={s.addBtn}>
-                        <Ionicons name="list" size={16} color={COLORS.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => addToQueue(item)} style={s.addBtn}>
-                        <Ionicons name="add" size={18} color={COLORS.primary} />
-                      </TouchableOpacity>
-                    </View>
-                  }
-                />
-              ))
+              recommendations.slice(0, 5).map((item) => renderRecommendationTrack(item))
             )}
           </View>
         )}
+
         {/* Based on Your Artists */}
         {artistBasedTracks.length > 0 && (
           <View style={s.section}>
@@ -404,24 +450,15 @@ export default function HomeScreen({ navigation }) {
               horizontal showsHorizontalScrollIndicator={false}
               keyExtractor={(item) => 'artist_' + item.id}
               contentContainerStyle={{ paddingHorizontal: SPACING.xl, gap: SPACING.lg }}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={s.trackCard} activeOpacity={0.7} onPress={() => playTrack(item)}>
-                  <View style={s.trackCardArtWrap}>
-                    {item.art_url ? (
-                      <Image source={{ uri: item.art_url }} style={s.trackCardArt} />
-                    ) : (
-                      <View style={[s.trackCardArt, s.trackCardArtPlaceholder]}>
-                        <Ionicons name="person" size={36} color={COLORS.textMuted} />
-                      </View>
-                    )}
-                  </View>
-                  <Text style={s.trackCardTitle} numberOfLines={1}>{item.title}</Text>
-                  <Text style={s.trackCardArtist} numberOfLines={1}>{item.artist}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={renderTrackCard}
+              initialNumToRender={4}
+              maxToRenderPerBatch={4}
+              windowSize={3}
+              removeClippedSubviews={true}
             />
           </View>
         )}
+
         {/* Empty State */}
         {history.length === 0 && trending.length === 0 && !loadingTrending && (
           <View style={s.emptyState}>
@@ -431,6 +468,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
+
       {/* Playlist Action Sheet Modal */}
       <Modal visible={showActions} transparent animationType="slide" onRequestClose={() => setShowActions(false)}>
         <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowActions(false)}>
@@ -485,6 +523,7 @@ export default function HomeScreen({ navigation }) {
     </View>
   );
 }
+
 const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   scrollContent: { paddingBottom: 160 },
@@ -509,7 +548,6 @@ const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
     fontSize: 26, fontWeight: '900', color: '#FFF',
     letterSpacing: 1.5,
   },
-  greeting: { fontSize: 28, fontWeight: '800', color: '#FFF', letterSpacing: -0.5 },
   subGreeting: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2 },
   settingsBtn: {
     width: 44, height: 44, borderRadius: 22,
