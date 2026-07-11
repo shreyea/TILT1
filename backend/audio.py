@@ -31,14 +31,19 @@ def get_audio_url(song_title: str, artist: str) -> dict:
     query = f'{song_title} {artist} official audio'
     
     ydl_opts = {
-        'format': 'bestaudio/best',
-        'quiet': True,
-        'noplaylist': True,
-        'extract_flat': False,
-        'no_warnings': True,
-        'socket_timeout': 15,
-        'retries': 3,
+    "format": "bestaudio/best",
+    "quiet": True,
+    "noplaylist": True,
+    "extract_flat": False,
+    "no_warnings": True,
+    "socket_timeout": 15,
+    "retries": 3,
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["android", "web"]
+        }
     }
+}
     
     cookie = get_cookie_file()
     if cookie:
