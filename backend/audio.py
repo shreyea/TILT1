@@ -16,7 +16,7 @@ def get_audio_url(song_title: str, artist: str) -> dict:
     query = f'{song_title} {artist} official audio'
     
     ydl_opts = {
-        'format': 'bestaudio[ext=m4a]/bestaudio/best',
+        'format': 'bestaudio/best',
         'quiet': True,
         'noplaylist': True,
         'extract_flat': False,
@@ -26,10 +26,18 @@ def get_audio_url(song_title: str, artist: str) -> dict:
     }
     
     import os
-    if os.path.exists('cookies.txt'):
-        ydl_opts['cookiefile'] = 'cookies.txt'
+    COOKIE_FILE = '/etc/secrets/cookies.txt'
+    LOCAL_COOKIE = 'cookies.txt'
     
+    if os.path.exists(COOKIE_FILE):
+        ydl_opts['cookiefile'] = COOKIE_FILE
+    elif os.path.exists(LOCAL_COOKIE):
+        ydl_opts['cookiefile'] = LOCAL_COOKIE
+        
     try:
+        logger.info(f"Cookie exists at {COOKIE_FILE}: {os.path.exists(COOKIE_FILE)}")
+        logger.info(f"Cookie exists at {LOCAL_COOKIE}: {os.path.exists(LOCAL_COOKIE)}")
+        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(
                 f'ytsearch1:{query}',
@@ -56,17 +64,25 @@ def get_audio_url(song_title: str, artist: str) -> dict:
 def get_audio_url_by_id(youtube_id: str) -> dict:
     """Extract audio URL from a known YouTube video ID."""
     ydl_opts = {
-        'format': 'bestaudio[ext=m4a]/bestaudio/best',
+        'format': 'bestaudio/best',
         'quiet': True,
         'no_warnings': True,
         'socket_timeout': 15,
     }
     
     import os
-    if os.path.exists('cookies.txt'):
-        ydl_opts['cookiefile'] = 'cookies.txt'
+    COOKIE_FILE = '/etc/secrets/cookies.txt'
+    LOCAL_COOKIE = 'cookies.txt'
+    
+    if os.path.exists(COOKIE_FILE):
+        ydl_opts['cookiefile'] = COOKIE_FILE
+    elif os.path.exists(LOCAL_COOKIE):
+        ydl_opts['cookiefile'] = LOCAL_COOKIE
     
     try:
+        logger.info(f"Cookie exists at {COOKIE_FILE}: {os.path.exists(COOKIE_FILE)}")
+        logger.info(f"Cookie exists at {LOCAL_COOKIE}: {os.path.exists(LOCAL_COOKIE)}")
+        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(
                 f'https://www.youtube.com/watch?v={youtube_id}',
