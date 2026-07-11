@@ -2,8 +2,23 @@
 # YouTube audio extraction via yt-dlp — no downloads, just streamable URLs
 import yt_dlp
 import logging
+import os
+import shutil
 
 logger = logging.getLogger(__name__)
+
+def get_cookie_file():
+    secret = "/etc/secrets/cookies.txt"
+    temp = "/tmp/cookies.txt"
+
+    if os.path.exists(secret):
+        shutil.copy(secret, temp)
+        return temp
+
+    if os.path.exists("cookies.txt"):
+        return "cookies.txt"
+
+    return None
 
 
 def get_audio_url(song_title: str, artist: str) -> dict:
@@ -25,18 +40,12 @@ def get_audio_url(song_title: str, artist: str) -> dict:
         'retries': 3,
     }
     
-    import os
-    COOKIE_FILE = '/etc/secrets/cookies.txt'
-    LOCAL_COOKIE = 'cookies.txt'
-    
-    if os.path.exists(COOKIE_FILE):
-        ydl_opts['cookiefile'] = COOKIE_FILE
-    elif os.path.exists(LOCAL_COOKIE):
-        ydl_opts['cookiefile'] = LOCAL_COOKIE
+    cookie = get_cookie_file()
+    if cookie:
+        ydl_opts["cookiefile"] = cookie
         
     try:
-        logger.info(f"Cookie exists at {COOKIE_FILE}: {os.path.exists(COOKIE_FILE)}")
-        logger.info(f"Cookie exists at {LOCAL_COOKIE}: {os.path.exists(LOCAL_COOKIE)}")
+        logger.info(f"Cookie exists at {cookie}: {bool(cookie)}")
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(
@@ -70,18 +79,12 @@ def get_audio_url_by_id(youtube_id: str) -> dict:
         'socket_timeout': 15,
     }
     
-    import os
-    COOKIE_FILE = '/etc/secrets/cookies.txt'
-    LOCAL_COOKIE = 'cookies.txt'
-    
-    if os.path.exists(COOKIE_FILE):
-        ydl_opts['cookiefile'] = COOKIE_FILE
-    elif os.path.exists(LOCAL_COOKIE):
-        ydl_opts['cookiefile'] = LOCAL_COOKIE
+    cookie = get_cookie_file()
+    if cookie:
+        ydl_opts["cookiefile"] = cookie
     
     try:
-        logger.info(f"Cookie exists at {COOKIE_FILE}: {os.path.exists(COOKIE_FILE)}")
-        logger.info(f"Cookie exists at {LOCAL_COOKIE}: {os.path.exists(LOCAL_COOKIE)}")
+        logger.info(f"Cookie exists at {cookie}: {bool(cookie)}")
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(
