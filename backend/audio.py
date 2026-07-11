@@ -78,7 +78,7 @@ def get_audio_url(song_title: str, artist: str) -> dict:
 def get_audio_url_by_id(youtube_id: str) -> dict:
     """Extract audio URL from a known YouTube video ID."""
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'best',
         'quiet': True,
         'no_warnings': True,
         'socket_timeout': 15,
@@ -96,11 +96,17 @@ def get_audio_url_by_id(youtube_id: str) -> dict:
                 f'https://www.youtube.com/watch?v={youtube_id}',
                 download=False
             )
+
+            logger.info(f"Formats returned: {len(info.get('formats', []))}")
+
+            for f in info.get("formats", []):
+                logger.info(f"id={f.get('format_id')} ext={f.get('ext')} vcodec={f.get('vcodec')} acodec={f.get('acodec')}")
+
             return {
                 'url': info['url'],
                 'title': info.get('title', ''),
                 'duration': info.get('duration', 0),
-            }
+    }
     except Exception as e:
         logger.error(f'Audio extraction failed for YouTube ID {youtube_id}: {e}')
         raise
