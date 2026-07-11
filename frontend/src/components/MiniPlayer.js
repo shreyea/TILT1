@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePlayer } from '../context/PlayerContext';
 import { toggleLike, checkLiked } from '../api';
 import { SPACING } from '../theme';
+import * as Storage from '../services/StorageService';
 
 const { width: W } = Dimensions.get('window');
 
@@ -30,7 +31,18 @@ function MiniPlayer({ onPress, tabBarHeight = 68 }) {
   const handleLike = useCallback(async () => {
     if (!currentTrack) return;
     const nowLiked = await toggleLike(currentTrack);
-    if (nowLiked !== null) setLiked(nowLiked);
+    if (nowLiked !== null) {
+      setLiked(nowLiked);
+      let localLiked = await Storage.getLikedSongs();
+      if (nowLiked) {
+        if (!localLiked.find(t => t.id === currentTrack.id)) {
+           localLiked = [currentTrack, ...localLiked];
+        }
+      } else {
+        localLiked = localLiked.filter(t => t.id !== currentTrack.id);
+      }
+      await Storage.saveLikedSongs(localLiked);
+    }
   }, [currentTrack]);
 
   if (!currentTrack) return null;

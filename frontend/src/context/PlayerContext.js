@@ -5,7 +5,7 @@
 // Persists: audio settings, history, queue, last track via StorageService
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
-import { getStreamUrl } from '../api';
+import { getStreamUrl, logPlay } from '../api';
 import * as Storage from '../services/StorageService';
 
 const PlayerContext = createContext(null);
@@ -314,8 +314,8 @@ export function PlayerProvider({ children }) {
         soundRef.current = null;
       }
 
-      // FIX: Use { uri: ... } for remote audio sources
-      const sound = createAudioPlayer({ uri: streamData.url }, { updateInterval: 500 });
+      // FIX: Use URL string directly for Expo SDK 51+
+      const sound = createAudioPlayer(streamData.url, { updateInterval: 500 });
       
       // Apply audio settings
       const effectiveVol = bassBoostRef.current ? Math.min(volumeRef.current * 1.3, 1.0) : volumeRef.current;
@@ -344,6 +344,11 @@ export function PlayerProvider({ children }) {
 
       // Add to history
       setHistory(prev => [track, ...prev.filter(t => t.id !== track.id)].slice(0, 50));
+      
+      // Log play to backend
+      try {
+        logPlay(track);
+      } catch (e) {}
     } catch (e) {
       if (playLockRef.current !== myLock) return; // stale call, ignore error
       console.error('Play failed:', e);

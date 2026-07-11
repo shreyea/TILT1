@@ -115,6 +115,27 @@ export const getRecommendations = async (trackIds) => {
   }
 };
 
+export const getBasedSuggestions = async () => {
+  try {
+    const res = await api.get('/based-suggestions');
+    return res.data.results || [];
+  } catch (error) {
+    console.error('Based suggestions failed:', error.message);
+    return [];
+  }
+};
+
+// ─── Play Counts ──────────────────────────────────────────
+
+export const logPlay = async (track) => {
+  try {
+    await api.post('/play', track);
+  } catch (error) {
+    // Silently fail
+  }
+};
+
+
 // ─── Discovery ────────────────────────────────────────────
 
 export const getTrending = async (limit = 20) => {

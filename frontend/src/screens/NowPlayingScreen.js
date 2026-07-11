@@ -12,6 +12,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { toggleLike, checkLiked, getPlaylists, addToPlaylist, createPlaylist } from '../api';
 import AudioSettingsScreen from './AudioSettingsScreen';
 import { SPACING } from '../theme';
+import * as Storage from '../services/StorageService';
 const { width: W, height: H } = Dimensions.get('window');
 function fmt(ms) {
   if (!ms || ms < 0) return '0:00';
@@ -72,7 +73,18 @@ export default function NowPlayingScreen({ onClose }) {
   const handleLike = async () => {
     if (!currentTrack) return;
     const nowLiked = await toggleLike(currentTrack);
-    if (nowLiked !== null) setLiked(nowLiked);
+    if (nowLiked !== null) {
+      setLiked(nowLiked);
+      let localLiked = await Storage.getLikedSongs();
+      if (nowLiked) {
+        if (!localLiked.find(t => t.id === currentTrack.id)) {
+           localLiked = [currentTrack, ...localLiked];
+        }
+      } else {
+        localLiked = localLiked.filter(t => t.id !== currentTrack.id);
+      }
+      await Storage.saveLikedSongs(localLiked);
+    }
   };
   // Reset lyrics when track changes
   useEffect(() => {

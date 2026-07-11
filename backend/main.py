@@ -12,7 +12,7 @@ from audio import get_audio_url, get_audio_url_by_id
 from playlist import (
     init_db, get_playlists, create_playlist, get_playlist_tracks, add_to_playlist,
     remove_from_playlist, delete_playlist, toggle_like, get_liked_songs, is_liked,
-    reorder_playlist_tracks
+    reorder_playlist_tracks, increment_play_count, get_top_tracks
 )
 from pydantic import BaseModel
 from typing import Optional, List
@@ -116,6 +116,30 @@ def recommendations(track_ids: str = Query(..., description="Comma-separated Spo
     if not ids:
         raise HTTPException(400, 'Provide at least one track ID')
     return {'results': get_recommendations(ids)}
+
+
+@app.get('/based-suggestions')
+def based_suggestions():
+    """Get recommendations based on most played tracks and recently liked songs."""
+    try:
+        # Get up to 3 top played tracks
+        top = get_top_tracks(3)
+        # Get up to 2 recently liked songs
+        liked = get_liked_songs()[:2]
+        
+        seeds = list(set([t.get('spotify_id') or t.get('id') for t in top + liked if t.get('spotify_id') or t.get('id')]))
+        
+        if not seeds:
+            return {'results': [], 'count': 0}
+            
+        # Spotify allows up to 5 seed tracks
+        seeds = seeds[:5]
+        
+        recs = get_recommendations(seeds, limit=15)
+        return {'results': recs, 'count': len(recs)}
+    except Exception as e:
+        logger.error(f'Based suggestions failed: {e}')
+        return {'results': [], 'count': 0}
 
 
 # ─── Discovery ──────────────────────────────────────────────
@@ -264,6 +288,15 @@ def toggle_liked(track: TrackInput):
 def check_liked(track_id: str):
     """Check if a track is liked."""
     return {'liked': is_liked(track_id)}
+
+
+# ─── Play Counts ────────────────────────────────────────────
+
+@app.post('/play')
+def log_play(track: TrackInput):
+    """Log a play for a track to update play counts."""
+    increment_play_count(track.model_dump())
+    return {'status': 'logged'}
 
 
 # ─── Spotify Playlist Import ────────────────────────────────

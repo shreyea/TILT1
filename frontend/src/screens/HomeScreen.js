@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
-import { getRecommendations, getTrending, getNewReleases, getMoodTracks, getArtistTracks, getPlaylists, addToPlaylist, createPlaylist } from '../api';
+import { getRecommendations, getBasedSuggestions, getTrending, getNewReleases, getMoodTracks, getArtistTracks, getPlaylists, addToPlaylist, createPlaylist } from '../api';
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
 import * as Storage from '../services/StorageService';
 
@@ -28,6 +28,7 @@ export default function HomeScreen({ navigation }) {
 
   const { history, playTrack, addToQueue, currentTrack, playAll } = usePlayer();
   const [recommendations, setRecommendations] = useState([]);
+  const [basedSuggestions, setBasedSuggestions] = useState([]);
   const [trending, setTrending] = useState([]);
   const [newReleases, setNewReleases] = useState([]);
   const [moodTracks, setMoodTracks] = useState([]);
@@ -154,7 +155,13 @@ export default function HomeScreen({ navigation }) {
             const recs = await getRecommendations(ids);
             setRecommendations(recs || []);
           }
+          const based = await getBasedSuggestions();
+          setBasedSuggestions(based || []);
           setLoadingRecs(false);
+        } else {
+          // even if no history, they might have liked songs
+          const based = await getBasedSuggestions();
+          setBasedSuggestions(based || []);
         }
       } catch (e) {
         console.warn('loadRecs failed:', e);
@@ -430,6 +437,32 @@ export default function HomeScreen({ navigation }) {
             ) : (
               recommendations.slice(0, 5).map((item) => renderRecommendationTrack(item))
             )}
+          </View>
+        )}
+
+        {/* Based on your activity */}
+        {basedSuggestions.length > 0 && (
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitleInline}>Based on your activity</Text>
+              <TouchableOpacity onPress={() => playAll(basedSuggestions)}>
+                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.playAllChip}>
+                  <Ionicons name="play" size={12} color="#FFF" />
+                  <Text style={s.playAllText}>Play All</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={basedSuggestions}
+              horizontal showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => 'based_' + (item.id || item.spotify_id)}
+              contentContainerStyle={{ paddingHorizontal: SPACING.xl, gap: SPACING.lg }}
+              renderItem={renderTrackCard}
+              initialNumToRender={4}
+              maxToRenderPerBatch={4}
+              windowSize={3}
+              removeClippedSubviews={true}
+            />
           </View>
         )}
 

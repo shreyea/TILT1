@@ -51,8 +51,45 @@ def init_db():
         duration_ms INTEGER DEFAULT 0,
         liked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+    con.execute('''CREATE TABLE IF NOT EXISTS track_counts (
+        spotify_id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        artist TEXT NOT NULL,
+        play_count INTEGER DEFAULT 1,
+        last_played TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
     con.commit()
     con.close()
+
+# ─── Play Counts ─────────────────────────────────────────────
+
+def increment_play_count(track: dict):
+    """Increment play count for a track."""
+    con = get_connection()
+    spotify_id = track.get('id', '')
+    if not spotify_id:
+        return
+        
+    existing = con.execute('SELECT play_count FROM track_counts WHERE spotify_id=?', (spotify_id,)).fetchone()
+    if existing:
+        con.execute(
+            'UPDATE track_counts SET play_count = play_count + 1, last_played = CURRENT_TIMESTAMP WHERE spotify_id=?',
+            (spotify_id,)
+        )
+    else:
+        con.execute(
+            'INSERT INTO track_counts (spotify_id, title, artist) VALUES (?, ?, ?)',
+            (spotify_id, track.get('title', ''), track.get('artist', ''))
+        )
+    con.commit()
+    con.close()
+
+def get_top_tracks(limit: int = 10):
+    """Get most played tracks."""
+    con = get_connection()
+    rows = con.execute('SELECT * FROM track_counts ORDER BY play_count DESC, last_played DESC LIMIT ?', (limit,)).fetchall()
+    con.close()
+    return [dict(r) for r in rows]
 
 
 # ─── Playlists ──────────────────────────────────────────────
