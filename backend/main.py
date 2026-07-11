@@ -1,7 +1,8 @@
 # backend/main.py
 # FastAPI server — ties Spotify metadata + YouTube audio extraction together
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from spotify import (
     search_songs, get_track_details, get_recommendations,
@@ -192,26 +193,74 @@ def artist_tracks(artist_name: str, limit: int = 15):
 
 @app.get('/stream')
 def stream(
+    request: Request,
     title: str = Query(..., description="Song title"),
     artist: str = Query(..., description="Artist name"),
     id: str = Query(None, description="YouTube Video ID")
 ):
     """
-    Get a streamable audio URL from YouTube.
-    URLs expire in ~6 hours — always fetch fresh.
+    Get a streamable audio URL.
+    Proxies through the backend to bypass YouTube's IP restrictions.
     """
     try:
         # If we have the exact YouTube ID from YTMusic metadata, stream it directly!
         if id and len(id) == 11 and not id.startswith('spotify'):
-            return get_audio_url_by_id(id)
+            result = get_audio_url_by_id(id)
+        else:
+            # Fallback to searching YouTube
+            result = get_audio_url(title, artist)
             
-        # Fallback to searching YouTube
-        result = get_audio_url(title, artist)
+        raw_url = result.get('url')
+        if not raw_url:
+            raise ValueError("No URL found")
+            
+        # Construct proxy URL
+        import urllib.parse
+        base_url = str(request.base_url).rstrip('/')
+        proxy_url = f"{base_url}/proxy-stream?url={urllib.parse.quote(raw_url)}"
+        
+        result['url'] = proxy_url
         return result
     except Exception as e:
         logger.error(f'Stream failed for "{title}" by {artist}: {e}')
         raise HTTPException(500, f'Audio extraction failed: {str(e)}')
 
+@app.get('/proxy-stream')
+def proxy_stream(request: Request, url: str = Query(...)):
+    """
+    Proxies the audio stream from YouTube to the client.
+    This bypasses the IP lock that Google enforces on googlevideo.com URLs.
+    """
+    import requests
+    headers = {}
+    if 'Range' in request.headers:
+        headers['Range'] = request.headers['Range']
+        
+    try:
+        r = requests.get(url, headers=headers, stream=True, timeout=10)
+        
+        def generate():
+            try:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        yield chunk
+            finally:
+                r.close()
+                
+        # Pass through essential streaming headers
+        response_headers = {}
+        for k, v in r.headers.items():
+            if k.lower() in ('content-type', 'content-length', 'content-range', 'accept-ranges'):
+                response_headers[k] = v
+                
+        return StreamingResponse(
+            generate(), 
+            status_code=r.status_code, 
+            headers=response_headers
+        )
+    except Exception as e:
+        logger.error(f"Proxy stream error: {e}")
+        raise HTTPException(502, "Failed to proxy media stream")
 
 # ─── Playlists ──────────────────────────────────────────────
 
