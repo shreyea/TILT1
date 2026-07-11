@@ -3,8 +3,9 @@ import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, ScrollView, StyleSheet,
   StatusBar, TouchableOpacity, ActivityIndicator, Platform, Image,
-  RefreshControl, Modal, TextInput, Alert
+  RefreshControl, Modal, TextInput, Alert, ImageBackground
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayer } from '../context/PlayerContext';
@@ -226,6 +227,8 @@ export default function HomeScreen({ navigation }) {
   const moodLabel = useMemo(() => MOOD_CARDS.find(m => m.key === selectedMood)?.label || 'For You', [selectedMood]);
 
   // Memoized Render Items
+  const lastPlayed = history.length > 0 ? history[0] : null;
+
   const renderTrackCard = useCallback(({ item }) => (
     <TouchableOpacity style={s.trackCard} activeOpacity={0.7} onPress={() => playTrack(item)}>
       <View style={s.trackCardArtWrap}>
@@ -310,7 +313,91 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </LinearGradient>
 
-        {/* Mood Chips */}
+        {/* 1. Jump Back In / Last Played Banner */}
+        {lastPlayed && (
+          <View style={[s.section, { paddingHorizontal: SPACING.xl }]}>
+            <Text style={s.sectionTitleInline}>Jump Back In</Text>
+            <TouchableOpacity activeOpacity={0.8} onPress={() => playTrack(lastPlayed)} style={{ marginTop: 12 }}>
+              <View style={s.jumpBanner}>
+                {lastPlayed.art_url ? (
+                  <Image source={{ uri: lastPlayed.art_url }} style={StyleSheet.absoluteFillObject} />
+                ) : (
+                  <View style={[StyleSheet.absoluteFillObject, { backgroundColor: COLORS.surfaceElevated }]} />
+                )}
+                <BlurView intensity={80} tint={themeName === 'Dawn' ? 'light' : 'dark'} style={s.jumpBlur}>
+                  <LinearGradient
+                    colors={['transparent', COLORS.background + '80']}
+                    style={s.jumpGradient}
+                  />
+                  <View style={s.jumpContent}>
+                    <View style={s.jumpArtWrap}>
+                      {lastPlayed.art_url ? (
+                        <Image source={{ uri: lastPlayed.art_url }} style={s.jumpArt} />
+                      ) : (
+                        <Ionicons name="musical-notes" size={24} color={COLORS.textMuted} />
+                      )}
+                    </View>
+                    <View style={s.jumpTextWrap}>
+                      <Text style={s.jumpTitle} numberOfLines={1}>{lastPlayed.title}</Text>
+                      <Text style={s.jumpArtist} numberOfLines={1}>{lastPlayed.artist}</Text>
+                    </View>
+                    <View style={s.jumpPlayBtn}>
+                      <Ionicons name="play" size={20} color="#FFF" style={{ marginLeft: 2 }} />
+                    </View>
+                  </View>
+                </BlurView>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 2. Based on your activity */}
+        {basedSuggestions.length > 0 && (
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitleInline}>Based on your activity</Text>
+              <TouchableOpacity onPress={() => playAll(basedSuggestions)}>
+                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.playAllChip}>
+                  <Ionicons name="play" size={12} color="#FFF" />
+                  <Text style={s.playAllText}>Play All</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={basedSuggestions}
+              horizontal showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => 'based_' + (item.id || item.spotify_id)}
+              contentContainerStyle={{ paddingHorizontal: SPACING.xl, gap: SPACING.lg }}
+              renderItem={renderTrackCard}
+              initialNumToRender={4}
+              maxToRenderPerBatch={4}
+              windowSize={3}
+              removeClippedSubviews={true}
+            />
+          </View>
+        )}
+
+        {/* 3. Recommended For You */}
+        {recommendations.length > 0 && (
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitleInline}>Recommended For You</Text>
+              <TouchableOpacity onPress={() => playAll(recommendations)}>
+                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.playAllChip}>
+                  <Ionicons name="play" size={12} color="#FFF" />
+                  <Text style={s.playAllText}>Play All</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+            {loadingRecs ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+            ) : (
+              recommendations.slice(0, 5).map((item) => renderRecommendationTrack(item))
+            )}
+          </View>
+        )}
+
+        {/* 4. Mood Chips & Tracks */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Your Mood</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -332,7 +419,6 @@ export default function HomeScreen({ navigation }) {
           </ScrollView>
         </View>
 
-        {/* Mood Tracks */}
         {selectedMood && (
           <View style={s.section}>
             <View style={s.sectionHeader}>
@@ -364,12 +450,12 @@ export default function HomeScreen({ navigation }) {
           </View>
         )}
 
-        {/* Recently Played */}
-        {history.length > 0 && (
+        {/* 5. Recently Played (Skip the first one since it is in Jump Back In) */}
+        {history.length > 1 && (
           <View style={s.section}>
             <Text style={s.sectionTitle}>Recently Played</Text>
             <FlatList
-              data={history.slice(0, 10)}
+              data={history.slice(1, 10)}
               horizontal showsHorizontalScrollIndicator={false}
               keyExtractor={(item, i) => 'recent_' + item.id + '_' + i}
               contentContainerStyle={{ paddingHorizontal: SPACING.xl, gap: SPACING.lg }}
@@ -382,7 +468,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         )}
 
-        {/* Trending */}
+        {/* 6. Trending Now */}
         <View style={s.section}>
           <View style={s.sectionHeader}>
             <Text style={s.sectionTitleInline}>Trending Now</Text>
@@ -402,7 +488,7 @@ export default function HomeScreen({ navigation }) {
           )}
         </View>
 
-        {/* New Releases */}
+        {/* 7. New Releases */}
         {newReleases.length > 0 && (
           <View style={s.section}>
             <Text style={s.sectionTitle}>New Releases</Text>
@@ -420,53 +506,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         )}
 
-        {/* Recommended For You */}
-        {recommendations.length > 0 && (
-          <View style={s.section}>
-            <View style={s.sectionHeader}>
-              <Text style={s.sectionTitleInline}>Recommended For You</Text>
-              <TouchableOpacity onPress={() => playAll(recommendations)}>
-                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.playAllChip}>
-                  <Ionicons name="play" size={12} color="#FFF" />
-                  <Text style={s.playAllText}>Play All</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-            {loadingRecs ? (
-              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
-            ) : (
-              recommendations.slice(0, 5).map((item) => renderRecommendationTrack(item))
-            )}
-          </View>
-        )}
-
-        {/* Based on your activity */}
-        {basedSuggestions.length > 0 && (
-          <View style={s.section}>
-            <View style={s.sectionHeader}>
-              <Text style={s.sectionTitleInline}>Based on your activity</Text>
-              <TouchableOpacity onPress={() => playAll(basedSuggestions)}>
-                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.playAllChip}>
-                  <Ionicons name="play" size={12} color="#FFF" />
-                  <Text style={s.playAllText}>Play All</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={basedSuggestions}
-              horizontal showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => 'based_' + (item.id || item.spotify_id)}
-              contentContainerStyle={{ paddingHorizontal: SPACING.xl, gap: SPACING.lg }}
-              renderItem={renderTrackCard}
-              initialNumToRender={4}
-              maxToRenderPerBatch={4}
-              windowSize={3}
-              removeClippedSubviews={true}
-            />
-          </View>
-        )}
-
-        {/* Based on Your Artists */}
+        {/* 8. Based on Your Artists */}
         {artistBasedTracks.length > 0 && (
           <View style={s.section}>
             <View style={s.sectionHeader}>
@@ -640,4 +680,16 @@ const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
   inlineCreate: { backgroundColor: COLORS.surfaceLight, padding: 16, borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: COLORS.cardBorder },
   inlineInput: { backgroundColor: COLORS.surfaceElevated, color: '#FFF', borderRadius: 8, paddingHorizontal: 12, height: 40, fontSize: 14 },
   inlineBtn: { flex: 1, height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  
+  // Jump Back In Banner
+  jumpBanner: { height: 90, borderRadius: 18, overflow: 'hidden', ...SHADOWS.card, borderWidth: 1, borderColor: COLORS.cardBorder },
+  jumpBlur: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  jumpGradient: { ...StyleSheet.absoluteFillObject },
+  jumpContent: { flexDirection: 'row', alignItems: 'center', padding: 12, flex: 1 },
+  jumpArtWrap: { width: 64, height: 64, borderRadius: 12, overflow: 'hidden', backgroundColor: COLORS.surfaceElevated, justifyContent: 'center', alignItems: 'center' },
+  jumpArt: { width: '100%', height: '100%' },
+  jumpTextWrap: { flex: 1, marginLeft: 16, marginRight: 12 },
+  jumpTitle: { color: '#FFF', fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  jumpArtist: { color: COLORS.textPrimary, fontSize: 13, opacity: 0.8 },
+  jumpPlayBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', ...SHADOWS.button },
 });
