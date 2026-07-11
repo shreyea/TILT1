@@ -299,7 +299,9 @@ export function PlayerProvider({ children }) {
       }
 
       // Get fresh stream URL (they expire in ~6h)
+      console.log(`[PlayerContext] Fetching stream URL for: ${track.title} by ${track.artist}`);
       const streamData = await getStreamUrl(track.title, track.artist, track.id);
+      console.log(`[PlayerContext] Stream data received:`, !!streamData);
       
       // If another playTrack was called while we were fetching, bail out
       if (playLockRef.current !== myLock) return;
@@ -315,7 +317,9 @@ export function PlayerProvider({ children }) {
       }
 
       // FIX: Use URL string directly for Expo SDK 51+
+      console.log(`[PlayerContext] Creating AudioPlayer with URL:`, streamData.url);
       const sound = createAudioPlayer(streamData.url, { updateInterval: 500 });
+      console.log(`[PlayerContext] AudioPlayer created successfully.`);
       
       // Apply audio settings
       const effectiveVol = bassBoostRef.current ? Math.min(volumeRef.current * 1.3, 1.0) : volumeRef.current;
@@ -326,8 +330,14 @@ export function PlayerProvider({ children }) {
         sound.playbackRate = playbackSpeed;
       }
       
-      sound.addListener('playbackStatusUpdate', onPlaybackStatusUpdate);
+      sound.addListener('playbackStatusUpdate', (status) => {
+        // console.log(`[PlayerContext] Playback status update:`, status.playing, status.currentTime);
+        onPlaybackStatusUpdate(status);
+      });
+      
+      console.log(`[PlayerContext] Calling sound.play()...`);
       sound.play();
+      console.log(`[PlayerContext] sound.play() called.`);
 
       soundRef.current = sound;
       setIsPlaying(true);

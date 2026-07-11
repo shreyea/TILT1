@@ -23,7 +23,7 @@ def get_audio_url(song_title: str, artist: str) -> dict:
         'no_warnings': True,
         'socket_timeout': 15,
         'retries': 3,
-        'extractor_args': {'youtube': ['player_client=android']},
+        'extractor_args': {'youtube': ['player_client=ios,android']},
     }
     
     try:
@@ -57,7 +57,7 @@ def get_audio_url_by_id(youtube_id: str) -> dict:
         'quiet': True,
         'no_warnings': True,
         'socket_timeout': 15,
-        'extractor_args': {'youtube': ['player_client=android']},
+        'extractor_args': {'youtube': ['player_client=ios,android']},
     }
     
     try:
