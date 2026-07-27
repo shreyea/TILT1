@@ -31,19 +31,21 @@ def get_audio_url(song_title: str, artist: str) -> dict:
     query = f'{song_title} {artist} official audio'
     
     ydl_opts = {
-    "format": "bestaudio/best",
-    "quiet": True,
-    "noplaylist": True,
-    "extract_flat": False,
-    "no_warnings": True,
-    "socket_timeout": 15,
-    "retries": 3,
-    "extractor_args": {
-        "youtube": {
-            "player_client": ["android", "web"]
+        "format": "bestaudio/best",
+        "quiet": True,
+        "noplaylist": True,
+        "extract_flat": False,
+        "no_warnings": True,
+        "socket_timeout": 15,
+        "retries": 3,
+        "geo_bypass": True,
+        "source_address": "0.0.0.0",
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"]
+            }
         }
     }
-}
     
     cookie = get_cookie_file()
     if cookie:
@@ -78,10 +80,18 @@ def get_audio_url(song_title: str, artist: str) -> dict:
 def get_audio_url_by_id(youtube_id: str) -> dict:
     """Extract audio URL from a known YouTube video ID."""
     ydl_opts = {
-        'format': 'best',
+        'format': 'bestaudio/best',
         'quiet': True,
         'no_warnings': True,
         'socket_timeout': 15,
+        'retries': 3,
+        'geo_bypass': True,
+        'source_address': '0.0.0.0',
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web']
+            }
+        }
     }
     
     cookie = get_cookie_file()

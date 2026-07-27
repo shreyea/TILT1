@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+import httpx
+import urllib.parse
 from spotify import (
     search_songs, get_track_details, get_recommendations,
     get_trending_tracks, get_new_releases, get_mood_recommendations,
@@ -203,21 +205,27 @@ def stream(
     Proxies through the backend to bypass YouTube's IP restrictions.
     """
     try:
+        youtube_id = None
         # If we have the exact YouTube ID from YTMusic metadata, stream it directly!
         if id and len(id) == 11 and not id.startswith('spotify'):
             result = get_audio_url_by_id(id)
+            youtube_id = id
         else:
             # Fallback to searching YouTube
             result = get_audio_url(title, artist)
+            youtube_id = result.get('youtube_id', '')
             
         raw_url = result.get('url')
         if not raw_url:
             raise ValueError("No URL found")
             
-        # Construct proxy URL
-        import urllib.parse
+        # Construct proxy URL — encode the raw googlevideo URL
         base_url = str(request.base_url).rstrip('/')
         proxy_url = f"{base_url}/proxy-stream?url={urllib.parse.quote(raw_url)}"
+        
+        # Also pass youtube_id so proxy can retry with a fresh extraction if needed
+        if youtube_id:
+            proxy_url += f"&yt_id={youtube_id}"
         
         result['url'] = proxy_url
         return result
@@ -225,42 +233,108 @@ def stream(
         logger.error(f'Stream failed for "{title}" by {artist}: {e}')
         raise HTTPException(500, f'Audio extraction failed: {str(e)}')
 
+
+# Shared httpx async client — reused across requests for connection pooling
+_http_client = None
+
+def _get_http_client():
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=30.0, read=60.0, write=10.0, pool=10.0),
+            follow_redirects=True,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=5),
+        )
+    return _http_client
+
+
+# Headers that make the request look like a real media player
+_PROXY_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36',
+    'Referer': 'https://www.youtube.com/',
+    'Origin': 'https://www.youtube.com',
+}
+
+
 @app.get('/proxy-stream')
-def proxy_stream(request: Request, url: str = Query(...)):
+async def proxy_stream(
+    request: Request,
+    url: str = Query(..., description="Googlevideo audio URL"),
+    yt_id: str = Query(None, description="YouTube ID for retry fallback")
+):
     """
     Proxies the audio stream from YouTube to the client.
     This bypasses the IP lock that Google enforces on googlevideo.com URLs.
+    Uses async httpx to avoid blocking the event loop.
     """
-    import requests
-    headers = {}
-    if 'Range' in request.headers:
-        headers['Range'] = request.headers['Range']
+    async def _try_stream(stream_url: str):
+        """Attempt to stream from the given URL. Returns (response, error)."""
+        headers = {**_PROXY_HEADERS}
+        if 'Range' in request.headers:
+            headers['Range'] = request.headers['Range']
+
+        client = _get_http_client()
+        req = client.build_request('GET', stream_url, headers=headers)
+        resp = await client.send(req, stream=True)
         
+        if resp.status_code in (403, 410, 429):
+            await resp.aclose()
+            return None, resp.status_code
+        
+        return resp, None
+
     try:
-        r = requests.get(url, headers=headers, stream=True, timeout=10)
+        # First attempt with the provided URL
+        resp, err_code = await _try_stream(url)
         
-        def generate():
+        # If YouTube rejected us (403/410/429), retry with a fresh extraction
+        if resp is None and yt_id:
+            logger.warning(f"Proxy got {err_code} — retrying with fresh extraction for {yt_id}")
             try:
-                for chunk in r.iter_content(chunk_size=8192):
-                    if chunk:
-                        yield chunk
+                fresh = get_audio_url_by_id(yt_id)
+                fresh_url = fresh.get('url', '')
+                if fresh_url:
+                    resp, err_code = await _try_stream(fresh_url)
+            except Exception as retry_err:
+                logger.error(f"Retry extraction failed: {retry_err}")
+        
+        if resp is None:
+            raise HTTPException(502, f"YouTube rejected the stream (HTTP {err_code})")
+
+        # Build response headers
+        response_headers = {
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
+        }
+        for key in ('content-type', 'content-length', 'content-range'):
+            val = resp.headers.get(key)
+            if val:
+                response_headers[key] = val
+        
+        # Default content-type if YouTube doesn't provide one
+        if 'content-type' not in response_headers:
+            response_headers['content-type'] = 'audio/webm'
+
+        async def stream_chunks():
+            try:
+                async for chunk in resp.aiter_bytes(chunk_size=8192):
+                    yield chunk
+            except Exception as e:
+                logger.error(f"Stream chunk error: {e}")
             finally:
-                r.close()
-                
-        # Pass through essential streaming headers
-        response_headers = {}
-        for k, v in r.headers.items():
-            if k.lower() in ('content-type', 'content-length', 'content-range', 'accept-ranges'):
-                response_headers[k] = v
-                
+                await resp.aclose()
+
         return StreamingResponse(
-            generate(), 
-            status_code=r.status_code, 
-            headers=response_headers
+            stream_chunks(),
+            status_code=resp.status_code,
+            headers=response_headers,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Proxy stream error: {e}")
-        raise HTTPException(502, "Failed to proxy media stream")
+        raise HTTPException(502, f"Failed to proxy media stream: {str(e)}")
 
 # ─── Playlists ──────────────────────────────────────────────
 
