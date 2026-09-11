@@ -7,14 +7,13 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, StatusBar, Platform, Animated, Easing,
-  Dimensions, Image, Alert,
+  Image, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { importYouTubePlaylist } from '../services/PlaylistImportService';
 import * as Storage from '../services/StorageService';
 
-const { width: W } = Dimensions.get('window');
 
 function PulseLoader({ COLORS }) {
   const anim = useRef(new Animated.Value(0)).current;
@@ -316,7 +315,7 @@ const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
   progressLabel: { color: '#FFF', fontSize: 17, fontWeight: '700', marginTop: 16, marginBottom: 4 },
   progressSub: { color: COLORS.textSecondary, fontSize: 13, textAlign: 'center', marginBottom: 20 },
   progressTrack: {
-    width: W - 48, height: 8, backgroundColor: 'rgba(255,255,255,0.08)',
+    width: '100%', height: 8, backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 4, overflow: 'hidden',
   },
   progressFill: { height: 8, borderRadius: 4 },

@@ -12,6 +12,7 @@ import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
 import { SPACING } from '../theme';
 import * as Storage from '../services/StorageService';
+import { trackArt } from '../utils/trackArt';
 
 export default function SearchScreen() {
   const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
@@ -253,8 +254,8 @@ export default function SearchScreen() {
               style={s.suggestionItem}
               onPress={() => handleSuggestionPress(item)}
             >
-              {item.art_url_small ? (
-                <Image source={{ uri: item.art_url_small }} style={s.suggestionArt} />
+              {trackArt(item, { small: true }) ? (
+                <Image source={{ uri: trackArt(item, { small: true }) }} style={s.suggestionArt} />
               ) : (
                 <View style={[s.suggestionArt, s.suggestionArtPH]}>
                   <Ionicons name="musical-notes" size={14} color={COLORS.textMuted} />

@@ -13,6 +13,7 @@ import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
 import PlaylistImportScreen from './PlaylistImportScreen';
 import * as Storage from '../services/StorageService';
+import { trackArt } from '../utils/trackArt';
 
 export default function LibraryScreen() {
   const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
@@ -148,7 +149,7 @@ export default function LibraryScreen() {
           allPls[plIndex].track_count = updated.length;
           // Set cover art if it's the first track
           if (updated.length === 1) {
-             allPls[plIndex].cover_url = track.art_url_small || track.art_url;
+             allPls[plIndex].cover_url = trackArt(track);
           }
           await Storage.savePlaylists(allPls);
           setPlaylists(allPls);
@@ -178,7 +179,7 @@ export default function LibraryScreen() {
         if (updated.length === 0) {
            allPls[plIndex].cover_url = null;
         } else if (allPls[plIndex].cover_url === existing.find(t=>t.id===trackId)?.art_url_small) {
-           allPls[plIndex].cover_url = updated[0].art_url_small || updated[0].art_url;
+           allPls[plIndex].cover_url = trackArt(updated[0]);
         }
         await Storage.savePlaylists(allPls);
         setPlaylists(allPls);

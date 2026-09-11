@@ -13,6 +13,7 @@ import TrackItem from '../components/TrackItem';
 import { getRecommendations, getBasedSuggestions, getTrending, getNewReleases, getMoodTracks, getArtistTracks } from '../api';
 import { SPACING } from '../theme';
 import * as Storage from '../services/StorageService';
+import { trackArt } from '../utils/trackArt';
 
 const MOOD_CARDS = [
   { key: 'morning', label: 'Morning Chill', icon: 'sunny-outline', gradient: ['#F59E0B', '#D97706'] },
@@ -212,8 +213,8 @@ export default function HomeScreen({ navigation }) {
   const renderTrackCard = useCallback(({ item }) => (
     <TouchableOpacity style={s.trackCard} activeOpacity={0.7} onPress={() => playTrack(item)}>
       <View style={s.trackCardArtWrap}>
-        {item.art_url ? (
-          <Image source={{ uri: item.art_url }} style={s.trackCardArt} />
+        {trackArt(item) ? (
+          <Image source={{ uri: trackArt(item) }} style={s.trackCardArt} />
         ) : (
           <View style={[s.trackCardArt, s.trackCardArtPlaceholder]}>
             <Ionicons name="musical-notes" size={36} color={COLORS.textMuted} />
@@ -299,8 +300,8 @@ export default function HomeScreen({ navigation }) {
             <Text style={s.sectionTitleInline}>Jump Back In</Text>
             <TouchableOpacity activeOpacity={0.8} onPress={() => playTrack(lastPlayed)} style={{ marginTop: 12 }}>
               <View style={s.jumpBanner}>
-                {lastPlayed.art_url ? (
-                  <Image source={{ uri: lastPlayed.art_url }} style={StyleSheet.absoluteFillObject} />
+                {trackArt(lastPlayed) ? (
+                  <Image source={{ uri: trackArt(lastPlayed) }} style={StyleSheet.absoluteFillObject} />
                 ) : (
                   <View style={[StyleSheet.absoluteFillObject, { backgroundColor: COLORS.surfaceElevated }]} />
                 )}
@@ -311,8 +312,8 @@ export default function HomeScreen({ navigation }) {
                   />
                   <View style={s.jumpContent}>
                     <View style={s.jumpArtWrap}>
-                      {lastPlayed.art_url ? (
-                        <Image source={{ uri: lastPlayed.art_url }} style={s.jumpArt} />
+                      {trackArt(lastPlayed) ? (
+                        <Image source={{ uri: trackArt(lastPlayed) }} style={s.jumpArt} />
                       ) : (
                         <Ionicons name="musical-notes" size={24} color={COLORS.textMuted} />
                       )}

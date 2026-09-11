@@ -6,6 +6,7 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
+import { trackArt } from '../utils/trackArt';
 
 function formatDuration(ms) {
   if (!ms) return '';
@@ -52,9 +53,9 @@ function TrackItem({
         </View>
       ) : (
         <View style={s.artContainer}>
-          {track.art_url || track.art_url_small ? (
+          {trackArt(track, { small: true }) ? (
             <Image
-              source={{ uri: track.art_url_small || track.art_url }}
+              source={{ uri: trackArt(track, { small: true }) }}
               style={[s.art, compact && s.artSmall]}
             />
           ) : (

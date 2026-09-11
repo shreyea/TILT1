@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { usePlayer } from '../context/PlayerContext';
+import { TILT_ACTIONS, TILT_ACTION_LABELS, TILT_DIRECTIONS } from '../services/TiltGestureService';
 import { SPACING, BORDER_RADIUS } from '../theme';
 const EQ_BANDS = [
   { label: '60', freq: '60Hz' },
@@ -33,8 +34,8 @@ export default function AudioSettingsScreen({ onClose }) {
 
 
   const {
-    crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled,
-    updateCrossfade, updatePlaybackSpeed, toggleBassBoost, toggleFadeIn, toggleTiltGestures,
+    crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled, tiltGestureMap,
+    updateCrossfade, updatePlaybackSpeed, toggleBassBoost, toggleFadeIn, toggleTiltGestures, updateTiltGesture,
   } = usePlayer();
   const [spatialAudio, setSpatialAudio] = useState(false);
   const [eqEnabled, setEqEnabled] = useState(false);
@@ -169,7 +170,7 @@ export default function AudioSettingsScreen({ onClose }) {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.cardTitle}>Tilt Gestures</Text>
-              <Text style={s.cardSub}>Tilt left/right for volume, tilt forward to play/pause</Text>
+              <Text style={s.cardSub}>Control playback by tilting — choose what each direction does</Text>
             </View>
             <Switch
               value={tiltGesturesEnabled} onValueChange={toggleTiltGestures}
@@ -178,9 +179,28 @@ export default function AudioSettingsScreen({ onClose }) {
             />
           </View>
           {tiltGesturesEnabled && (
-            <View style={s.activeIndicator}>
-              <Ionicons name="radio" size={14} color={COLORS.secondary} />
-              <Text style={s.activeIndicatorText}>Active -- motion controls listening</Text>
+            <View style={s.tiltMapWrap}>
+              <Text style={s.tiltMapHint}>Tap an action to change it</Text>
+              {TILT_DIRECTIONS.map(dir => {
+                const current = tiltGestureMap?.[dir.key] || 'none';
+                return (
+                  <TouchableOpacity
+                    key={dir.key}
+                    style={s.tiltRow}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      const i = TILT_ACTIONS.indexOf(current);
+                      updateTiltGesture(dir.key, TILT_ACTIONS[(i + 1) % TILT_ACTIONS.length]);
+                    }}
+                  >
+                    <Ionicons name={dir.icon} size={16} color={COLORS.textSecondary} />
+                    <Text style={s.tiltDirLabel}>{dir.label}</Text>
+                    <Text style={[s.tiltActionLabel, current === 'none' && { color: COLORS.textMuted }]}>
+                      {TILT_ACTION_LABELS[current]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </View>
@@ -319,6 +339,11 @@ const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
     borderTopWidth: 1, borderTopColor: COLORS.cardBorder,
   },
   activeIndicatorText: { color: COLORS.secondary, fontSize: 12, fontWeight: '500' },
+  tiltMapWrap: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.cardBorder, gap: 2 },
+  tiltMapHint: { color: COLORS.textMuted, fontSize: 11, marginBottom: 8 },
+  tiltRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
+  tiltDirLabel: { color: COLORS.textSecondary, fontSize: 13, flex: 1 },
+  tiltActionLabel: { color: COLORS.primary, fontSize: 13, fontWeight: '700' },
   speedRow: { flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' },
   speedChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,

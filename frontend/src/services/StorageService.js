@@ -59,6 +59,7 @@ const DEFAULT_AUDIO_SETTINGS = {
   bassBoostOn: false,
   fadeInEnabled: false,
   tiltGesturesEnabled: false,
+  tiltGestureMap: { left: 'volumeUp', right: 'volumeDown', forward: 'next', back: 'previous' },
 };
 
 export async function getAudioSettings() {

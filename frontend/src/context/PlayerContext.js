@@ -10,11 +10,13 @@
 //
 // Persists: audio settings, history, queue, last track via StorageService
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { YTBridge } from '../components/YouTubePlayerBridge';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { getStreamUrl, logPlay } from '../api';
 import * as Storage from '../services/StorageService';
-import { useTiltGestures } from '../services/TiltGestureService';
+import { trackArt } from '../utils/trackArt';
+import { useTiltGestures, DEFAULT_TILT_MAP } from '../services/TiltGestureService';
 
 const PlayerContext = createContext(null);
 
@@ -72,6 +74,7 @@ export function PlayerProvider({ children }) {
   const [bassBoostOn, setBassBoostOn] = useState(false);
   const [fadeInEnabled, setFadeInEnabled] = useState(false);
   const [tiltGesturesEnabled, setTiltGesturesEnabled] = useState(false);
+  const [tiltGestureMap, setTiltGestureMap] = useState(DEFAULT_TILT_MAP);
 
   // ─── Playback Engine ─────────────────────────────────────
   // 'native' = expo-audio playing a direct, ad-free stream (normal case)
@@ -120,6 +123,14 @@ export function PlayerProvider({ children }) {
       shouldPlayInBackground: true,
       interruptionMode: 'duckOthers',
     }).catch((e) => console.warn('Failed to set audio mode:', e));
+
+    // Android 13+ gates notifications behind a runtime grant. The media
+    // controls live in a foreground-service notification, so without this
+    // there's no lock screen / notification player at all.
+    if (Platform.OS === 'android' && Platform.Version >= 33) {
+      PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS)
+        .catch((e) => console.warn('Notification permission request failed:', e));
+    }
   }, []);
 
   // ─── Restore Persisted State ────────────────────────────
@@ -145,6 +156,7 @@ export function PlayerProvider({ children }) {
           setBassBoostOn(savedSettings.bassBoostOn ?? false);
           setFadeInEnabled(savedSettings.fadeInEnabled ?? false);
           setTiltGesturesEnabled(savedSettings.tiltGesturesEnabled ?? false);
+          setTiltGestureMap({ ...DEFAULT_TILT_MAP, ...(savedSettings.tiltGestureMap || {}) });
         }
 
         if (savedHistory?.length > 0) {
@@ -211,10 +223,11 @@ export function PlayerProvider({ children }) {
         bassBoostOn,
         fadeInEnabled,
         tiltGesturesEnabled,
+        tiltGestureMap,
       });
     }, 500);
     return () => clearTimeout(persistSettingsTimer.current);
-  }, [volume, crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled]);
+  }, [volume, crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled, tiltGestureMap]);
 
   // ─── Native (expo-audio) Status → App State ──────────────
 
@@ -439,9 +452,11 @@ export function PlayerProvider({ children }) {
             title: track.title,
             artist: track.artist,
             albumTitle: track.album || '',
-            artworkUrl: track.coverUrl || track.thumbnail || '',
-          });
-        } catch (e) {}
+            artworkUrl: trackArt(track) || '',
+          }, { showSeekForward: true, showSeekBackward: true });
+        } catch (e) {
+          console.warn('Lock screen controls unavailable:', e);
+        }
       } else {
         YTBridge.setVolume(effectiveVol);
         if (playbackSpeed !== 1.0) YTBridge.setPlaybackRate(playbackSpeed);
@@ -562,7 +577,9 @@ export function PlayerProvider({ children }) {
     setTiltGesturesEnabled(enabled);
   }, []);
 
-  useTiltGestures({ enabled: tiltGesturesEnabled, volume, changeVolume, togglePlay });
+  const updateTiltGesture = useCallback((direction, action) => {
+    setTiltGestureMap(prev => ({ ...prev, [direction]: action }));
+  }, []);
 
   const playNext = useCallback(() => {
     const q = queueRef.current;
@@ -601,6 +618,17 @@ export function PlayerProvider({ children }) {
       playTrackRef.current(prev);
     }
   }, [player]);
+
+  // Tilt gestures need every transport action defined above this point.
+  useTiltGestures({
+    enabled: tiltGesturesEnabled,
+    gestureMap: tiltGestureMap,
+    volume,
+    changeVolume,
+    togglePlay,
+    playNext,
+    playPrevious,
+  });
 
   // ─── Queue Management ───────────────────────────────────
 
@@ -709,6 +737,7 @@ export function PlayerProvider({ children }) {
     bassBoostOn,
     fadeInEnabled,
     tiltGesturesEnabled,
+    tiltGestureMap,
     // Playback engine (for the audio visualizer — real sample data is only
     // available in 'native' mode; 'bridge' means the YouTube embed fallback
     // is active and has no sampling access)
@@ -735,6 +764,7 @@ export function PlayerProvider({ children }) {
     toggleBassBoost,
     toggleFadeIn,
     toggleTiltGestures,
+    updateTiltGesture,
   };
 
   return (

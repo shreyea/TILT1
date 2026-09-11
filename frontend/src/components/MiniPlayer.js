@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayer } from '../context/PlayerContext';
 import * as Storage from '../services/StorageService';
+import { trackArt } from '../utils/trackArt';
 
 const { width: W } = Dimensions.get('window');
 
@@ -58,8 +59,8 @@ function MiniPlayer({ onPress, tabBarHeight = 68 }) {
         <View style={s.content}>
           {/* Album Art */}
           <View style={s.artContainer}>
-            {currentTrack.art_url ? (
-              <Image source={{ uri: currentTrack.art_url }} style={s.art} />
+            {trackArt(currentTrack, { small: true }) ? (
+              <Image source={{ uri: trackArt(currentTrack, { small: true }) }} style={s.art} />
             ) : (
               <View style={[s.art, s.artPlaceholder]}>
                 <Ionicons name="musical-notes" size={20} color={COLORS.textMuted} />

@@ -1,7 +1,7 @@
 import { useTheme } from '../context/ThemeContext';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  View, Text, Image, TouchableOpacity, StyleSheet, Dimensions,
+  View, Text, Image, TouchableOpacity, StyleSheet, useWindowDimensions,
   StatusBar, Platform, ActivityIndicator, Modal, ScrollView,
   TextInput, Alert
 } from 'react-native';
@@ -12,32 +12,15 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { usePlayer } from '../context/PlayerContext';
 import AudioSettingsScreen from './AudioSettingsScreen';
 import AudioVisualizer from '../components/AudioVisualizer';
+import AmbientPulse from '../components/AmbientPulse';
 import * as Storage from '../services/StorageService';
-const { width: W, height: H } = Dimensions.get('window');
+import { trackArt } from '../utils/trackArt';
+import { fetchLyrics as lookupLyrics } from '../services/LyricsService';
 function fmt(ms) {
   if (!ms || ms < 0) return '0:00';
   const m = Math.floor(ms / 60000);
   const s = Math.floor((ms % 60000) / 1000);
   return `${m}:${s.toString().padStart(2, '0')}`;
-}
-// Parse "[mm:ss.xx] text" LRC format into [{time: ms, text: string}]
-function parseSyncedLyrics(lrc) {
-  if (!lrc) return [];
-  const lines = lrc.split('\n');
-  const parsed = [];
-  for (const line of lines) {
-    const match = line.match(/^\[(\d{2}):(\d{2})\.(\d{2,3})\]\s*(.*)/);
-    if (match) {
-      const min = parseInt(match[1], 10);
-      const sec = parseInt(match[2], 10);
-      let ms = parseInt(match[3], 10);
-      if (match[3].length === 2) ms *= 10;
-      const timeMs = min * 60000 + sec * 1000 + ms;
-      const text = match[4].trim();
-      if (text) parsed.push({ time: timeMs, text });
-    }
-  }
-  return parsed;
 }
 
 const STAGES = [
@@ -48,7 +31,9 @@ const STAGES = [
 
 export default function NowPlayingScreen({ onClose }) {
   const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
-  const s = useMemo(() => createStyles(COLORS, SHADOWS), [COLORS, SHADOWS]);
+  const { width: W, height: H } = useWindowDimensions();
+  const stageSize = Math.min(W * 0.8, 340);
+  const s = useMemo(() => createStyles(COLORS, SHADOWS, W, H, stageSize), [COLORS, SHADOWS, W, H, stageSize]);
 
   const {
     currentTrack, isPlaying, isLoading, position, duration,
@@ -58,6 +43,7 @@ export default function NowPlayingScreen({ onClose }) {
   } = usePlayer();
   const [liked, setLiked] = useState(false);
   const [showAudioSettings, setShowAudioSettings] = useState(false);
+  const [showAmbient, setShowAmbient] = useState(false);
   const [stageMode, setStageMode] = useState('art'); // 'art' | 'visualizer' | 'lyrics'
   const [syncedLines, setSyncedLines] = useState([]);
   const [plainLyrics, setPlainLyrics] = useState(null);
@@ -92,52 +78,31 @@ export default function NowPlayingScreen({ onClose }) {
     setPlainLyrics(null);
     setLyricsError(null);
   }, [currentTrack?.id]);
-  // Fetch lyrics from lrclib
+  // Fetch lyrics via LyricsService (handles noisy YouTube titles + fallbacks)
   const fetchLyrics = useCallback(async () => {
     if (!currentTrack) return;
     setLoadingLyrics(true);
     setLyricsError(null);
-
     try {
-      let data = null;
-      const res = await fetch(
-        `https://lrclib.net/api/get?artist_name=${encodeURIComponent(currentTrack.artist)}&track_name=${encodeURIComponent(currentTrack.title)}`
-      );
-
-      if (res.ok) {
-        data = await res.json();
-      } else {
-        const q = `${currentTrack.artist} ${currentTrack.title}`
-          .replace(/\[.*?\]|\(.*?\)/g, '').trim();
-        const searchRes = await fetch(
-          `https://lrclib.net/api/search?q=${encodeURIComponent(q)}`
-        );
-        if (searchRes.ok) {
-          const searchData = await searchRes.json();
-          if (searchData?.length > 0) data = searchData[0];
-        }
-      }
-      if (!data) {
-        setLyricsError('Lyrics not available');
-        return;
-      }
-
-      if (data.syncedLyrics) {
-        const parsed = parseSyncedLyrics(data.syncedLyrics);
-        setSyncedLines(parsed);
-        setPlainLyrics(null);
-      } else if (data.plainLyrics) {
-        setPlainLyrics(data.plainLyrics);
+      const result = await lookupLyrics(currentTrack);
+      if (!result) {
+        setLyricsError('No lyrics found for this track');
         setSyncedLines([]);
+        setPlainLyrics(null);
+      } else if (result.synced.length > 0) {
+        setSyncedLines(result.synced);
+        setPlainLyrics(null);
       } else {
-        setLyricsError('No lyrics found');
+        setPlainLyrics(result.plain);
+        setSyncedLines([]);
       }
     } catch (e) {
-      setLyricsError('Failed to load lyrics');
+      setLyricsError('Could not load lyrics');
     } finally {
       setLoadingLyrics(false);
     }
   }, [currentTrack]);
+
   const selectStage = async (mode) => {
     setStageMode(mode);
     if (mode === 'lyrics' && !syncedLines.length && !plainLyrics && !lyricsError) {
@@ -234,7 +199,7 @@ export default function NowPlayingScreen({ onClose }) {
 
   const renderStage = () => {
     if (stageMode === 'visualizer') {
-      return <AudioVisualizer active size={STAGE_SIZE} />;
+      return <AudioVisualizer active size={stageSize} />;
     }
     if (stageMode === 'lyrics') {
       return (
@@ -260,8 +225,8 @@ export default function NowPlayingScreen({ onClose }) {
       );
     }
     // 'art'
-    return currentTrack.art_url ? (
-      <Image source={{ uri: currentTrack.art_url }} style={s.stageSurface} />
+    return trackArt(currentTrack) ? (
+      <Image source={{ uri: trackArt(currentTrack) }} style={s.stageSurface} />
     ) : (
       <View style={[s.stageSurface, s.artPlaceholder]}>
         <Ionicons name="musical-notes" size={80} color={COLORS.primary} />
@@ -274,9 +239,9 @@ export default function NowPlayingScreen({ onClose }) {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
       {/* Background: full-bleed blurred album art */}
-      {currentTrack.art_url && (
+      {trackArt(currentTrack) && (
         <Image
-          source={{ uri: currentTrack.art_url }}
+          source={{ uri: trackArt(currentTrack) }}
           style={s.bgArt}
           blurRadius={70}
         />
@@ -411,6 +376,10 @@ export default function NowPlayingScreen({ onClose }) {
             <Ionicons name="list-outline" size={22} color="rgba(255,255,255,0.5)" />
             <Text style={s.bottomBtnText}>Queue</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowAmbient(true)} style={s.bottomBtn}>
+            <Ionicons name="sparkles-outline" size={22} color="rgba(255,255,255,0.5)" />
+            <Text style={s.bottomBtnText}>Ambient</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowAudioSettings(true)} style={s.bottomBtn}>
             <Ionicons name="options-outline" size={22} color="rgba(255,255,255,0.5)" />
             <Text style={s.bottomBtnText}>Audio</Text>
@@ -418,6 +387,11 @@ export default function NowPlayingScreen({ onClose }) {
         </View>
       </ScrollView>
 
+      {/* Ambient Pulse Modal */}
+      <Modal visible={showAmbient} animationType="fade" transparent={false}
+        onRequestClose={() => setShowAmbient(false)}>
+        <AmbientPulse onClose={() => setShowAmbient(false)} />
+      </Modal>
       {/* Audio Settings Modal */}
       <Modal visible={showAudioSettings} animationType="slide" transparent={false}
         onRequestClose={() => setShowAudioSettings(false)}>
@@ -479,8 +453,7 @@ export default function NowPlayingScreen({ onClose }) {
     </View>
   );
 }
-const STAGE_SIZE = Math.min(W * 0.8, 340);
-const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
+const createStyles = (COLORS, SHADOWS, W, H, STAGE_SIZE) => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
 
   // Background
@@ -559,7 +532,7 @@ const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
 
   // Bottom actions (inline now, screen scrolls)
   bottomRow: {
-    flexDirection: 'row', justifyContent: 'center', gap: 40,
+    flexDirection: 'row', justifyContent: 'center', gap: 30,
   },
   bottomBtn: { alignItems: 'center', gap: 5 },
   bottomBtnText: { color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: '600', letterSpacing: 0.4 },
