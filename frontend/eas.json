@@ -9,6 +9,7 @@
       "distribution": "internal"
     },
     "preview": {
+      "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
@@ -16,7 +17,11 @@
         "EXPO_PUBLIC_API_URL": "https://tilt1.onrender.com"
       }
     },
-    "production": {}
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://tilt1.onrender.com"
+      }
+    }
   },
   "submit": {
     "production": {
