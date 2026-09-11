@@ -1,5 +1,7 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
+import { getAudioStreamUrl, getAudioStreamById } from './services/AudioStreamService';
+import { getDirectAudioUrls } from './services/PipedStreamService';
 
 function getDevHost() {
   try {
@@ -88,13 +90,27 @@ export const searchSongs = async (query, abortSignal) => {
   }
 };
 
+// ─── Audio Streaming (Piped/Cobalt — no backend needed) ────
+
 export const getStreamUrl = async (title, artist, id) => {
   try {
-    const res = await api.get('/stream', {
-      params: { title, artist, id },
-      timeout: 45000, // Extra time for yt-dlp extraction
-    });
-    return res.data;
+    let streamData;
+
+    // If we have a YouTube video ID (11 chars, not a Spotify ID), stream it directly
+    if (id && id.length === 11 && !id.startsWith('spotify')) {
+      console.log(`[api] Streaming by videoId: ${id}`);
+      streamData = await getAudioStreamById(id);
+    } else {
+      // Otherwise search by title + artist across Piped → Invidious instances
+      console.log(`[api] Streaming by search: "${title}" by ${artist}`);
+      streamData = await getAudioStreamUrl(title, artist);
+    }
+
+    // Resolve direct, ad-free audio URLs for this videoId (ranked best-first).
+    // We never load YouTube's player, so its ad system never triggers.
+    const audioUrls = await getDirectAudioUrls(streamData.videoId);
+
+    return { ...streamData, audioUrls };
   } catch (error) {
     console.error('Stream URL failed:', error.message);
     throw error;
@@ -166,103 +182,6 @@ export const getMoodTracks = async (mood, limit = 15) => {
     console.error('Mood tracks failed:', error.message);
     return [];
   }
-};
-
-// ─── Liked Songs ──────────────────────────────────────────
-// Note: Liked songs are now primarily managed locally via StorageService.
-// These backend endpoints are kept for backwards compatibility or syncing if needed.
-
-export const getLikedSongs = async () => {
-  try {
-    const res = await api.get('/liked');
-    return res.data.songs || [];
-  } catch (error) {
-    return [];
-  }
-};
-
-export const toggleLike = async (track) => {
-  try {
-    const res = await api.post('/liked/toggle', track);
-    return res.data.liked;
-  } catch (error) {
-    return null;
-  }
-};
-
-export const checkLiked = async (trackId) => {
-  try {
-    const res = await api.get(`/liked/check/${trackId}`);
-    return res.data.liked;
-  } catch (error) {
-    return false;
-  }
-};
-
-// ─── Health Check ──────────────────────────────────────────
-
-export const healthCheck = async () => {
-  try {
-    const res = await api.get('/health');
-    return res.data.status === 'ok';
-  } catch {
-    return false;
-  }
-};
-
-// ─── Playlists ────────────────────────────────────────────
-// Note: Playlists are now primarily managed locally via StorageService.
-// These backend endpoints are kept for the Spotify Import feature.
-
-export const getPlaylists = async () => {
-  try {
-    const res = await api.get('/playlists');
-    return res.data.playlists || [];
-  } catch (error) {
-    return [];
-  }
-};
-
-export const getPlaylistTracks = async (playlistId) => {
-  try {
-    const res = await api.get(`/playlists/${playlistId}/tracks`);
-    return res.data.tracks || [];
-  } catch (error) {
-    return [];
-  }
-};
-
-export const createPlaylist = async (name, description = '') => {
-  const res = await api.post('/playlists', { name, description });
-  return res.data;
-};
-
-export const addToPlaylist = async (playlistId, track) => {
-  const res = await api.post(`/playlists/${playlistId}/tracks`, track);
-  return res.data;
-};
-
-export const removeFromPlaylist = async (trackDbId) => {
-  const res = await api.delete(`/playlists/tracks/${trackDbId}`);
-  return res.data;
-};
-
-export const reorderPlaylistTracks = async (playlistId, trackIds) => {
-  const res = await api.put(`/playlists/${playlistId}/tracks/reorder`, { track_ids: trackIds });
-  return res.data;
-};
-
-export const importSpotifyPlaylist = async (url, enhanceWithRecommendations = false) => {
-  const res = await api.post('/playlists/import/spotify', {
-    url,
-    enhance_with_recommendations: enhanceWithRecommendations,
-  }, { timeout: 120000 }); // 2 min timeout — large playlists take time
-  return res.data;
-};
-
-export const deletePlaylist = async (playlistId) => {
-  const res = await api.delete(`/playlists/${playlistId}`);
-  return res.data;
 };
 
 // ─── Artist Discovery ─────────────────────────────────────

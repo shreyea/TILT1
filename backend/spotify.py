@@ -204,10 +204,3 @@ def search_artist_tracks(artist_name: str, limit: int = 15):
     """
     return search_songs(f'{artist_name} songs', limit)
 
-
-def fetch_spotify_playlist(playlist_id: str):
-    """
-    We cannot easily fetch a Spotify playlist anymore without credentials.
-    We will mock an error telling the user this feature is disabled due to Spotify API limits.
-    """
-    raise ValueError("Spotify playlist import is currently disabled because it requires an active Spotify Premium account API key.")

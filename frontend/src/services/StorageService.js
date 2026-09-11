@@ -58,6 +58,7 @@ const DEFAULT_AUDIO_SETTINGS = {
   playbackSpeed: 1.0,
   bassBoostOn: false,
   fadeInEnabled: false,
+  tiltGesturesEnabled: false,
 };
 
 export async function getAudioSettings() {

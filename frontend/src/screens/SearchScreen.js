@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { searchSongs, getArtistTracks } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
-import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
+import { SPACING } from '../theme';
 import * as Storage from '../services/StorageService';
 
 export default function SearchScreen() {

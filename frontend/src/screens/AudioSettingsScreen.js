@@ -33,8 +33,8 @@ export default function AudioSettingsScreen({ onClose }) {
 
 
   const {
-    crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled,
-    updateCrossfade, updatePlaybackSpeed, toggleBassBoost, toggleFadeIn,
+    crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled,
+    updateCrossfade, updatePlaybackSpeed, toggleBassBoost, toggleFadeIn, toggleTiltGestures,
   } = usePlayer();
   const [spatialAudio, setSpatialAudio] = useState(false);
   const [eqEnabled, setEqEnabled] = useState(false);
@@ -158,6 +158,29 @@ export default function AudioSettingsScreen({ onClose }) {
             <View style={s.activeIndicator}>
               <Ionicons name="radio" size={14} color={COLORS.secondary} />
               <Text style={s.activeIndicatorText}>Active -- 2s fade on each new track</Text>
+            </View>
+          )}
+        </View>
+        {/* Tilt Gestures — FUNCTIONAL, optional motion controls */}
+        <View style={s.card}>
+          <View style={s.cardHeader}>
+            <View style={s.cardIconWrap}>
+              <Ionicons name="phone-portrait-outline" size={22} color="#06B6D4" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.cardTitle}>Tilt Gestures</Text>
+              <Text style={s.cardSub}>Tilt left/right for volume, tilt forward to play/pause</Text>
+            </View>
+            <Switch
+              value={tiltGesturesEnabled} onValueChange={toggleTiltGestures}
+              trackColor={{ false: COLORS.seekBarTrack, true: COLORS.primary + '60' }}
+              thumbColor={tiltGesturesEnabled ? COLORS.primary : COLORS.textMuted}
+            />
+          </View>
+          {tiltGesturesEnabled && (
+            <View style={s.activeIndicator}>
+              <Ionicons name="radio" size={14} color={COLORS.secondary} />
+              <Text style={s.activeIndicatorText}>Active -- motion controls listening</Text>
             </View>
           )}
         </View>

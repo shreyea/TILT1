@@ -6,13 +6,12 @@ import {
   RefreshControl
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { getRecommendations, searchSongs, getTrending } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
-import SpotifyImportScreen from './SpotifyImportScreen';
-import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
+import PlaylistImportScreen from './PlaylistImportScreen';
 import * as Storage from '../services/StorageService';
 
 export default function LibraryScreen() {
@@ -35,7 +34,7 @@ export default function LibraryScreen() {
   const [suggestions, setSuggestions] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   
-  const [showSpotifyImport, setShowSpotifyImport] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const { playTrack, currentTrack, playAll, addToQueue } = usePlayer();
   const searchAbortControllerRef = useRef(null);
 
@@ -367,9 +366,9 @@ export default function LibraryScreen() {
       <LinearGradient colors={[COLORS.secondary + '20', COLORS.background]} style={s.header}>
         <Text style={s.headerTitle}>Your Library</Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity onPress={() => setShowSpotifyImport(true)} style={[s.createBtn, { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1DB95420', borderWidth: 1, borderColor: '#1DB95440' }]}>
-            <FontAwesome5 name="spotify" size={16} color="#1DB954" />
-            <Text style={{ color: '#1DB954', fontSize: 12, fontWeight: '700' }}>Import</Text>
+          <TouchableOpacity onPress={() => setShowImport(true)} style={[s.createBtn, { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.primary + '20', borderWidth: 1, borderColor: COLORS.primary + '40' }]}>
+            <Ionicons name="download-outline" size={16} color={COLORS.primary} />
+            <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '700' }}>Import</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowCreate(true)} style={s.createBtn}>
             <Ionicons name="add" size={28} color={COLORS.primary} />
@@ -499,13 +498,13 @@ export default function LibraryScreen() {
         </View>
       </Modal>
 
-      {/* Spotify Import Modal */}
-      <Modal visible={showSpotifyImport} animationType="slide" transparent={false}
-        onRequestClose={() => setShowSpotifyImport(false)}>
-        <SpotifyImportScreen
-          onClose={() => setShowSpotifyImport(false)}
+      {/* Playlist Import Modal */}
+      <Modal visible={showImport} animationType="slide" transparent={false}
+        onRequestClose={() => setShowImport(false)}>
+        <PlaylistImportScreen
+          onClose={() => setShowImport(false)}
           onPlaylistCreated={async (playlist) => {
-            setShowSpotifyImport(false);
+            setShowImport(false);
             await loadData();
           }}
         />

@@ -1,12 +1,20 @@
 // src/context/PlayerContext.js
 // Global audio player state — manages current track, queue, playback, repeat, shuffle
 // Includes audio settings: crossfade, playback speed, bass boost (volume amplification)
-// Includes lock screen / notification controls for background playback
+//
+// Playback engine: expo-audio playing a direct audio stream resolved via Piped
+// (ad-free — we never load YouTube's player, so its ad system never triggers).
+// If every Piped instance is unreachable for a track, we fall back to the
+// YouTube IFrame bridge (YTBridge) as a last resort so playback doesn't just
+// fail outright — that path does show YouTube's ads.
+//
 // Persists: audio settings, history, queue, last track via StorageService
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { YTBridge } from '../components/YouTubePlayerBridge';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { getStreamUrl, logPlay } from '../api';
 import * as Storage from '../services/StorageService';
+import { useTiltGestures } from '../services/TiltGestureService';
 
 const PlayerContext = createContext(null);
 
@@ -18,6 +26,32 @@ export const usePlayer = () => {
 
 // Repeat modes: 'off' | 'all' | 'one'
 const REPEAT_MODES = ['off', 'all', 'one'];
+
+// Number of ranked direct-audio candidates to try before giving up and
+// falling back to the YouTube embed.
+const MAX_DIRECT_CANDIDATES = 3;
+const DIRECT_CANDIDATE_TIMEOUT_MS = 5000;
+const FADE_IN_DURATION_MS = 2000;
+
+// Waits for a just-replaced source on `player` to actually start loading
+// real audio. Resolves true once we see a non-zero duration, false on timeout.
+function waitForPlayableOrTimeout(player, timeoutMs) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      try { player.removeListener('playbackStatusUpdate', onStatus); } catch (e) {}
+      clearTimeout(timer);
+      resolve(result);
+    };
+    const onStatus = (s) => {
+      if (s?.isLoaded && s.duration > 0) finish(true);
+    };
+    player.addListener('playbackStatusUpdate', onStatus);
+    const timer = setTimeout(() => finish(false), timeoutMs);
+  });
+}
 
 export function PlayerProvider({ children }) {
   const [currentTrack, setCurrentTrack] = useState(null);
@@ -37,6 +71,15 @@ export function PlayerProvider({ children }) {
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [bassBoostOn, setBassBoostOn] = useState(false);
   const [fadeInEnabled, setFadeInEnabled] = useState(false);
+  const [tiltGesturesEnabled, setTiltGesturesEnabled] = useState(false);
+
+  // ─── Playback Engine ─────────────────────────────────────
+  // 'native' = expo-audio playing a direct, ad-free stream (normal case)
+  // 'bridge' = YouTube IFrame fallback (only when Piped is fully unreachable)
+  const playbackModeRef = useRef('native');
+  const [playbackMode, setPlaybackMode] = useState('native');
+  const player = useAudioPlayer(null, { updateInterval: 500 });
+  const status = useAudioPlayerStatus(player);
 
   const soundRef = useRef(null);
   const fullQueueRef = useRef([]); // For repeat-all
@@ -45,6 +88,7 @@ export function PlayerProvider({ children }) {
   const currentTrackRef = useRef(null);
   const playLockRef = useRef(0); // Prevents double-play race conditions
   const isLoadingRef = useRef(false); // Prevents status callback from overriding isPlaying during load
+  const endHandledRef = useRef(false); // Prevents double-firing track-end for native status updates
 
   // Use refs to avoid stale closures in callbacks
   const queueRef = useRef(queue);
@@ -68,6 +112,16 @@ export function PlayerProvider({ children }) {
   useEffect(() => { positionRef.current = position; }, [position]);
   useEffect(() => { historyRef.current = history; }, [history]);
 
+  // ─── Audio Session Setup ─────────────────────────────────
+
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'duckOthers',
+    }).catch((e) => console.warn('Failed to set audio mode:', e));
+  }, []);
+
   // ─── Restore Persisted State ────────────────────────────
   const initializedRef = useRef(false);
 
@@ -90,6 +144,7 @@ export function PlayerProvider({ children }) {
           setPlaybackSpeed(savedSettings.playbackSpeed ?? 1.0);
           setBassBoostOn(savedSettings.bassBoostOn ?? false);
           setFadeInEnabled(savedSettings.fadeInEnabled ?? false);
+          setTiltGesturesEnabled(savedSettings.tiltGesturesEnabled ?? false);
         }
 
         if (savedHistory?.length > 0) {
@@ -155,36 +210,110 @@ export function PlayerProvider({ children }) {
         playbackSpeed,
         bassBoostOn,
         fadeInEnabled,
+        tiltGesturesEnabled,
       });
     }, 500);
     return () => clearTimeout(persistSettingsTimer.current);
-  }, [volume, crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled]);
+  }, [volume, crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled]);
 
-  // ─── Audio Setup ─────────────────────────────────────────
+  // ─── Native (expo-audio) Status → App State ──────────────
 
   useEffect(() => {
-    // Use 'doNotMix' for lock screen controls to work properly
-    (async () => {
-      try {
-        await setAudioModeAsync({
-          playsInSilentMode: true,
-          shouldPlayInBackground: true,
-          interruptionMode: 'doNotMix',
-        });
-      } catch (e) {
-        console.warn('setAudioModeAsync failed (non-fatal):', e);
+    if (playbackModeRef.current !== 'native' || !status) return;
+
+    const posMs = (status.currentTime || 0) * 1000;
+    const durMs = (status.duration || 0) * 1000;
+    setPosition(posMs);
+    positionRef.current = posMs;
+    setDuration(durMs);
+
+    if (!isLoadingRef.current) {
+      setIsPlaying(status.playing);
+    }
+
+    // Crossfade near end
+    if (
+      crossfadeRef.current > 0 &&
+      durMs > 0 && posMs > 0 &&
+      durMs - posMs <= crossfadeRef.current * 1000 &&
+      !crossfadeTimerRef.current &&
+      queueRef.current.length > 0
+    ) {
+      crossfadeTimerRef.current = 'active';
+      const q = queueRef.current;
+      const [next, ...rest] = q;
+      setQueue(rest);
+      playTrackRef.current(next, true);
+    }
+
+    if (status.didJustFinish && !crossfadeTimerRef.current && !endHandledRef.current) {
+      endHandledRef.current = true;
+      handleTrackEndRef.current();
+    }
+  }, [status]);
+
+  // ─── YouTube Bridge Setup (fallback path only) ───────────
+
+  useEffect(() => {
+    const onTimeUpdate = (data) => {
+      if (playbackModeRef.current !== 'bridge' || !data) return;
+      const posMs = data.currentTime ? data.currentTime * 1000 : 0;
+      const durMs = data.duration ? data.duration * 1000 : 0;
+      setPosition(posMs);
+      positionRef.current = posMs;
+      setDuration(durMs);
+
+      if (
+        crossfadeRef.current > 0 &&
+        durMs > 0 && posMs > 0 &&
+        durMs - posMs <= crossfadeRef.current * 1000 &&
+        !crossfadeTimerRef.current &&
+        queueRef.current.length > 0
+      ) {
+        crossfadeTimerRef.current = 'active';
+        const q = queueRef.current;
+        const [next, ...rest] = q;
+        setQueue(rest);
+        playTrackRef.current(next, true);
       }
-    })();
+    };
+
+    const onStateChange = (data) => {
+      if (playbackModeRef.current !== 'bridge' || !data) return;
+      if (data.state === 'playing' && !isLoadingRef.current) {
+        setIsPlaying(true);
+      } else if (data.state === 'paused' && !isLoadingRef.current) {
+        setIsPlaying(false);
+      }
+    };
+
+    const onEnded = () => {
+      if (playbackModeRef.current !== 'bridge') return;
+      if (!crossfadeTimerRef.current) {
+        handleTrackEndRef.current();
+      }
+    };
+
+    const onError = (data) => {
+      if (playbackModeRef.current !== 'bridge') return;
+      console.error('[YTBridge] Playback error:', data?.code);
+      setError('Playback error. Trying next track...');
+      setIsLoading(false);
+      isLoadingRef.current = false;
+      setTimeout(() => handleTrackEndRef.current(), 1000);
+    };
+
+    YTBridge.on('timeUpdate', onTimeUpdate);
+    YTBridge.on('stateChange', onStateChange);
+    YTBridge.on('ended', onEnded);
+    YTBridge.on('error', onError);
 
     return () => {
-      if (soundRef.current) {
-        try {
-          soundRef.current.pause();
-          soundRef.current.release();
-        } catch (e) {
-          console.warn('Cleanup error:', e);
-        }
-      }
+      YTBridge.off('timeUpdate', onTimeUpdate);
+      YTBridge.off('stateChange', onStateChange);
+      YTBridge.off('ended', onEnded);
+      YTBridge.off('error', onError);
+      YTBridge.stop();
       if (crossfadeTimerRef.current && crossfadeTimerRef.current !== 'active') {
         clearInterval(crossfadeTimerRef.current);
       }
@@ -192,87 +321,38 @@ export function PlayerProvider({ children }) {
     };
   }, []);
 
-  // ─── Lock Screen / Notification Controls ─────────────────
+  // Ramps volume 0 → target so a new track eases in instead of starting abruptly.
+  const applyFadeIn = useCallback((targetVolume) => {
+    if (fadeInTimerRef.current) clearInterval(fadeInTimerRef.current);
 
-  const enableLockScreenControls = useCallback((player, track) => {
-    if (!player || !track) return;
-    try {
-      player.setActiveForLockScreen(true, {
-        title: track.title || 'Unknown',
-        artist: track.artist || 'Unknown Artist',
-        albumTitle: track.album || '',
-        artworkUrl: track.art_url || '',
-      });
-    } catch (e) {
-      console.warn('Lock screen controls error:', e);
-    }
-  }, []);
-
-  // ─── Crossfade Logic ─────────────────────────────────────
-  // When crossfade is enabled and a track is near its end,
-  // gradually reduce volume and start the next track early.
-  
-  const startCrossfade = useCallback((oldSound) => {
-    if (!oldSound || crossfadeRef.current <= 0) return;
-    
-    const fadeMs = crossfadeRef.current * 1000;
     const steps = 20;
-    const stepMs = fadeMs / steps;
     let step = 0;
-    
-    const timer = setInterval(() => {
-      step++;
-      const newVol = Math.max(0, 1 - (step / steps));
-      try {
-        oldSound.volume = newVol * volumeRef.current;
-      } catch (e) {
-        // Sound may already be released
-      }
-      
-      if (step >= steps) {
-        clearInterval(timer);
-        try { oldSound.release(); } catch (e) {}
-        crossfadeTimerRef.current = null;
-      }
-    }, stepMs);
-  }, []);
+    try { player.volume = 0; } catch (e) { return; }
 
-  // Fade-in effect for new tracks
-  const applyFadeIn = useCallback((newSound) => {
-    if (!newSound) return;
-    
-    const fadeMs = 2000; // 2 second fade-in
-    const steps = 20;
-    const stepMs = fadeMs / steps;
-    let step = 0;
-    const targetVol = bassBoostRef.current ? Math.min(volumeRef.current * 1.3, 1.0) : volumeRef.current;
-    
-    newSound.volume = 0;
-    
     fadeInTimerRef.current = setInterval(() => {
       step++;
       try {
-        newSound.volume = (step / steps) * targetVol;
+        player.volume = Math.min(targetVolume, (step / steps) * targetVolume);
       } catch (e) {}
-      
       if (step >= steps) {
         clearInterval(fadeInTimerRef.current);
         fadeInTimerRef.current = null;
       }
-    }, stepMs);
-  }, []);
+    }, FADE_IN_DURATION_MS / steps);
+  }, [player]);
 
   // ─── Play a Track ────────────────────────────────────────
 
   const playTrackInternal = async (track, isCrossfading = false) => {
     // Increment lock — any in-flight play calls with a stale lock will bail out
     const myLock = ++playLockRef.current;
-    
+
     setError(null);
     setIsLoading(true);
     isLoadingRef.current = true;
     setCurrentTrack(track);
     currentTrackRef.current = track;
+    endHandledRef.current = false;
 
     try {
       if (fadeInTimerRef.current) {
@@ -285,82 +365,97 @@ export function PlayerProvider({ children }) {
         crossfadeTimerRef.current = null;
       }
 
-      // ALWAYS stop the old sound immediately to prevent double-audio
-      if (soundRef.current) {
-        try {
-          soundRef.current.pause();
-          if (!isCrossfading) {
-            soundRef.current.release();
-          }
-        } catch (e) {
-          console.warn('Failed to release previous sound:', e);
-        }
-        if (!isCrossfading) soundRef.current = null;
-      }
+      // Stop whatever was playing on either engine
+      try { player.pause(); } catch (e) {}
+      YTBridge.stop();
 
-      // Get fresh stream URL (they expire in ~6h)
-      console.log(`[PlayerContext] Fetching stream URL for: ${track.title} by ${track.artist}`);
+      // Resolve the video + ranked direct (ad-free) audio URLs for this track
+      console.log(`[PlayerContext] Resolving stream for: ${track.title} by ${track.artist}`);
       const streamData = await getStreamUrl(track.title, track.artist, track.id);
-      console.log(`[PlayerContext] Stream data received:`, !!streamData);
-      
+      console.log(`[PlayerContext] videoId: ${streamData?.videoId}, ${streamData?.audioUrls?.length || 0} direct candidate(s)`);
+
       // If another playTrack was called while we were fetching, bail out
       if (playLockRef.current !== myLock) return;
-      
-      if (!streamData || !streamData.url) {
-        throw new Error('Could not get audio URL');
+
+      const videoId = streamData?.videoId || streamData?.url;
+      if (!videoId) {
+        throw new Error('Could not find video for this song');
       }
 
-      // Double-check: stop any sound that might have started during the async gap
-      if (soundRef.current && !isCrossfading) {
-        try { soundRef.current.pause(); soundRef.current.release(); } catch (e) {}
-        soundRef.current = null;
+      const candidates = (streamData?.audioUrls || []).slice(0, MAX_DIRECT_CANDIDATES);
+      let played = false;
+
+      // Try direct, ad-free audio streams first — no YouTube player is ever
+      // loaded on this path, so there's no ad system to trigger.
+      for (const candidate of candidates) {
+        if (playLockRef.current !== myLock) return;
+        try {
+          player.replace({ uri: candidate.url });
+          player.play();
+          const ok = await waitForPlayableOrTimeout(player, DIRECT_CANDIDATE_TIMEOUT_MS);
+          if (playLockRef.current !== myLock) return;
+          if (ok) {
+            played = true;
+            break;
+          }
+        } catch (e) {
+          console.warn('[PlayerContext] Direct stream candidate failed:', e.message);
+        }
       }
 
-      // FIX: Use URL string directly for Expo SDK 51+
-      console.log(`[PlayerContext] Creating AudioPlayer with URL:`, streamData.url);
-      const sound = createAudioPlayer(streamData.url, { updateInterval: 500 });
-      console.log(`[PlayerContext] AudioPlayer created successfully.`);
-      
-      // Apply audio settings
-      const effectiveVol = bassBoostRef.current ? Math.min(volumeRef.current * 1.3, 1.0) : volumeRef.current;
-      sound.volume = fadeInEnabled ? 0 : effectiveVol;
-      
-      // Apply playback speed
-      if (playbackSpeed !== 1.0) {
-        sound.playbackRate = playbackSpeed;
-      }
-      
-      sound.addListener('playbackStatusUpdate', (status) => {
-        // console.log(`[PlayerContext] Playback status update:`, status.playing, status.currentTime);
-        onPlaybackStatusUpdate(status);
-      });
-      
-      console.log(`[PlayerContext] Calling sound.play()...`);
-      sound.play();
-      console.log(`[PlayerContext] sound.play() called.`);
+      if (playLockRef.current !== myLock) return;
 
-      soundRef.current = sound;
+      if (played) {
+        playbackModeRef.current = 'native';
+        setPlaybackMode('native');
+        soundRef.current = { playing: true, mode: 'native', videoId };
+      } else {
+        // Every Piped instance was unreachable/rate-limited for this track —
+        // fall back to the official YouTube embed so playback doesn't just
+        // fail. This path does show YouTube's ads.
+        console.warn('[PlayerContext] All direct audio sources failed — falling back to YouTube embed (ads)');
+        try { player.pause(); player.clearLockScreenControls(); } catch (e) {}
+        playbackModeRef.current = 'bridge';
+        setPlaybackMode('bridge');
+        YTBridge.play(videoId);
+        soundRef.current = { playing: true, mode: 'bridge', videoId };
+      }
+
       setIsPlaying(true);
       setIsLoading(false);
       isLoadingRef.current = false;
 
-      // Enable notification / lock screen controls
-      enableLockScreenControls(sound, track);
-
-      // Apply fade-in
-      if (fadeInEnabled) {
-        applyFadeIn(sound);
+      // Apply volume + speed on whichever engine is active
+      const effectiveVol = bassBoostRef.current ? Math.min(volumeRef.current * 1.3, 1.0) : volumeRef.current;
+      if (playbackModeRef.current === 'native') {
+        if (fadeInEnabled) {
+          applyFadeIn(effectiveVol);
+        } else {
+          player.volume = effectiveVol;
+        }
+        if (playbackSpeed !== 1.0) player.setPlaybackRate(playbackSpeed);
+        try {
+          player.setActiveForLockScreen(true, {
+            title: track.title,
+            artist: track.artist,
+            albumTitle: track.album || '',
+            artworkUrl: track.coverUrl || track.thumbnail || '',
+          });
+        } catch (e) {}
+      } else {
+        YTBridge.setVolume(effectiveVol);
+        if (playbackSpeed !== 1.0) YTBridge.setPlaybackRate(playbackSpeed);
       }
 
       // Add to history
       setHistory(prev => [track, ...prev.filter(t => t.id !== track.id)].slice(0, 50));
-      
+
       // Log play to backend
       try {
         logPlay(track);
       } catch (e) {}
     } catch (e) {
-      if (playLockRef.current !== myLock) return; // stale call, ignore error
+      if (playLockRef.current !== myLock) return;
       console.error('Play failed:', e);
       setError(`Failed to play "${track.title}"`);
       setIsLoading(false);
@@ -385,10 +480,15 @@ export function PlayerProvider({ children }) {
     const sh = shuffleOnRef.current;
 
     if (rm === 'one') {
-      if (soundRef.current) {
-        soundRef.current.seekTo(0);
-        soundRef.current.play();
+      // Replay current track on whichever engine is active
+      if (playbackModeRef.current === 'native') {
+        player.seekTo(0);
+        player.play();
+      } else {
+        YTBridge.seekTo(0);
+        YTBridge.resume();
       }
+      endHandledRef.current = false;
       return;
     }
 
@@ -405,74 +505,64 @@ export function PlayerProvider({ children }) {
     } else {
       setIsPlaying(false);
     }
-  }, []);
+  }, [player]);
 
-  // ─── Playback Status Callback ────────────────────────────
-
-  const onPlaybackStatusUpdate = useCallback((status) => {
-    if (!status) return;
-    
-    // expo-audio reports time in seconds — convert to ms for internal use
-    const posMs = status.currentTime ? status.currentTime * 1000 : 0;
-    const durMs = status.duration ? status.duration * 1000 : 0;
-    
-    setPosition(posMs);
-    setDuration(durMs);
-    
-    // FIX: Don't let status updates override isPlaying while we're loading
-    // This prevents the buffering false → true flicker that kills playback state
-    if (typeof status.playing === 'boolean' && !isLoadingRef.current) {
-      setIsPlaying(status.playing);
-    }
-
-    // Crossfade: start fading near the end
-    if (
-      crossfadeRef.current > 0 &&
-      durMs > 0 &&
-      posMs > 0 &&
-      durMs - posMs <= crossfadeRef.current * 1000 &&
-      !crossfadeTimerRef.current &&
-      queueRef.current.length > 0
-    ) {
-      crossfadeTimerRef.current = 'active'; // Mark as started so it doesn't trigger multiple times
-      startCrossfade(soundRef.current);
-      // Start next track early
-      const q = queueRef.current;
-      const [next, ...rest] = q;
-      setQueue(rest);
-      playTrackRef.current(next, true);
-    }
-
-    // Handle track end (expo-audio does NOT auto-reset position)
-    if (status.didJustFinish && !crossfadeTimerRef.current) {
-      handleTrackEnd();
-    }
-  }, [handleTrackEnd, startCrossfade]);
+  // ─── handleTrackEnd ref for the bridge/native event listeners ────
+  const handleTrackEndRef = useRef(handleTrackEnd);
+  handleTrackEndRef.current = handleTrackEnd;
 
   // ─── Controls ────────────────────────────────────────────
 
   const togglePlay = useCallback(() => {
     if (!soundRef.current) return;
-    // Read playing state directly from the player to avoid stale closure
-    if (soundRef.current.playing) {
-      soundRef.current.pause();
+    if (playbackModeRef.current === 'native') {
+      if (soundRef.current.playing) {
+        player.pause();
+        soundRef.current.playing = false;
+      } else {
+        player.play();
+        soundRef.current.playing = true;
+      }
     } else {
-      soundRef.current.play();
+      if (soundRef.current.playing) {
+        YTBridge.pause();
+        soundRef.current.playing = false;
+      } else {
+        YTBridge.resume();
+        soundRef.current.playing = true;
+      }
     }
-  }, []);
+  }, [player]);
 
   const seekTo = useCallback(async (ms) => {
-    if (!soundRef.current) return;
-    soundRef.current.seekTo(ms / 1000);
-  }, []);
+    if (playbackModeRef.current === 'native') {
+      await player.seekTo(ms / 1000);
+    } else {
+      YTBridge.seekTo(ms / 1000);
+    }
+  }, [player]);
 
   const changeVolume = useCallback(async (vol) => {
     setVolume(vol);
-    if (soundRef.current) {
-      const effectiveVol = bassBoostRef.current ? Math.min(vol * 1.3, 1.0) : vol;
-      soundRef.current.volume = effectiveVol;
+    // A manual change wins over an in-progress fade-in ramp.
+    if (fadeInTimerRef.current) {
+      clearInterval(fadeInTimerRef.current);
+      fadeInTimerRef.current = null;
     }
+    const effectiveVol = bassBoostRef.current ? Math.min(vol * 1.3, 1.0) : vol;
+    if (playbackModeRef.current === 'native') {
+      player.volume = effectiveVol;
+    } else {
+      YTBridge.setVolume(effectiveVol);
+    }
+  }, [player]);
+
+  // ─── Tilt Gestures (optional motion controls) ────────────
+  const toggleTiltGestures = useCallback((enabled) => {
+    setTiltGesturesEnabled(enabled);
   }, []);
+
+  useTiltGestures({ enabled: tiltGesturesEnabled, volume, changeVolume, togglePlay });
 
   const playNext = useCallback(() => {
     const q = queueRef.current;
@@ -496,9 +586,13 @@ export function PlayerProvider({ children }) {
 
   const playPrevious = useCallback(() => {
     // Use refs to avoid stale closures
-    if (positionRef.current > 3000 && soundRef.current) {
+    if (positionRef.current > 3000) {
       // If more than 3 seconds in, restart current track
-      soundRef.current.seekTo(0);
+      if (playbackModeRef.current === 'native') {
+        player.seekTo(0);
+      } else {
+        YTBridge.seekTo(0);
+      }
       return;
     }
     const h = historyRef.current;
@@ -506,7 +600,7 @@ export function PlayerProvider({ children }) {
       const prev = h[1]; // [0] is current
       playTrackRef.current(prev);
     }
-  }, []);
+  }, [player]);
 
   // ─── Queue Management ───────────────────────────────────
 
@@ -554,18 +648,22 @@ export function PlayerProvider({ children }) {
 
   const updatePlaybackSpeed = useCallback((speed) => {
     setPlaybackSpeed(speed);
-    if (soundRef.current) {
-      soundRef.current.playbackRate = speed;
+    if (playbackModeRef.current === 'native') {
+      player.setPlaybackRate(speed);
+    } else {
+      YTBridge.setPlaybackRate(speed);
     }
-  }, []);
+  }, [player]);
 
   const toggleBassBoost = useCallback((enabled) => {
     setBassBoostOn(enabled);
-    if (soundRef.current) {
-      const effectiveVol = enabled ? Math.min(volumeRef.current * 1.3, 1.0) : volumeRef.current;
-      soundRef.current.volume = effectiveVol;
+    const effectiveVol = enabled ? Math.min(volumeRef.current * 1.3, 1.0) : volumeRef.current;
+    if (playbackModeRef.current === 'native') {
+      player.volume = effectiveVol;
+    } else {
+      YTBridge.setVolume(effectiveVol);
     }
-  }, []);
+  }, [player]);
 
   const toggleFadeIn = useCallback((enabled) => {
     setFadeInEnabled(enabled);
@@ -576,17 +674,17 @@ export function PlayerProvider({ children }) {
   const playAll = useCallback((tracks, startIndex = 0) => {
     if (!tracks || tracks.length === 0) return;
     const sh = shuffleOnRef.current;
-    
+
     // The first track must be the one clicked (or index 0)
     const first = tracks[startIndex] || tracks[0];
-    
+
     // The rest of the tracks
     let rest = tracks.filter((_, i) => i !== startIndex);
-    
+
     if (sh) {
       rest = shuffleArray([...rest]);
     }
-    
+
     setQueue(rest);
     fullQueueRef.current = tracks;
     playTrackRef.current(first);
@@ -610,6 +708,12 @@ export function PlayerProvider({ children }) {
     playbackSpeed,
     bassBoostOn,
     fadeInEnabled,
+    tiltGesturesEnabled,
+    // Playback engine (for the audio visualizer — real sample data is only
+    // available in 'native' mode; 'bridge' means the YouTube embed fallback
+    // is active and has no sampling access)
+    player,
+    playbackMode,
     // Actions
     playTrack,
     togglePlay,
@@ -630,6 +734,7 @@ export function PlayerProvider({ children }) {
     updatePlaybackSpeed,
     toggleBassBoost,
     toggleFadeIn,
+    toggleTiltGestures,
   };
 
   return (

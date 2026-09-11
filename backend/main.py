@@ -9,7 +9,7 @@ import urllib.parse
 from spotify import (
     search_songs, get_track_details, get_recommendations,
     get_trending_tracks, get_new_releases, get_mood_recommendations,
-    search_artist_tracks, fetch_spotify_playlist
+    search_artist_tracks
 )
 from audio import get_audio_url, get_audio_url_by_id
 from playlist import (
@@ -70,24 +70,6 @@ class TrackInput(BaseModel):
 class PlaylistCreate(BaseModel):
     name: str
     description: Optional[str] = ''
-
-
-class SpotifyImportRequest(BaseModel):
-    url: str
-    enhance_with_recommendations: Optional[bool] = False
-
-
-def extract_playlist_id(url: str) -> Optional[str]:
-    """Extract Spotify playlist ID from various URL formats."""
-    patterns = [
-        r'spotify\.com/playlist/([A-Za-z0-9]+)',
-        r'spotify:playlist:([A-Za-z0-9]+)',
-    ]
-    for p in patterns:
-        m = re.search(p, url)
-        if m:
-            return m.group(1)
-    return None
 
 
 # ─── Search ─────────────────────────────────────────────────
@@ -423,96 +405,6 @@ def log_play(track: TrackInput):
 
 
 # ─── Spotify Playlist Import ────────────────────────────────
-
-@app.post('/playlists/import/spotify')
-def import_spotify_playlist(req: SpotifyImportRequest):
-    """
-    Import a Spotify playlist into the app.
-    1. Fetch all tracks from Spotify using the URL.
-    2. Attempt to match each track against our catalog via search.
-    3. Create a new native playlist with matched tracks.
-    4. Optionally add recommendations based on matched tracks.
-    Returns full results including unmatched tracks.
-    """
-    # Step 1: Extract playlist ID
-    playlist_id = extract_playlist_id(req.url)
-    if not playlist_id:
-        raise HTTPException(400, 'Invalid Spotify playlist URL. Expected format: https://open.spotify.com/playlist/...')
-
-    # Step 2: Fetch from Spotify
-    try:
-        sp_data = fetch_spotify_playlist(playlist_id)
-    except ValueError as e:
-        raise HTTPException(404, str(e))
-
-    sp_tracks = sp_data['tracks']
-    if not sp_tracks:
-        raise HTTPException(404, 'Playlist is empty or private.')
-
-    # Step 3: Create the native playlist
-    try:
-        native_pl = create_playlist(
-            name=sp_data['name'],
-            description=sp_data.get('description', f"Imported from Spotify · {sp_data['owner']}")
-        )
-    except ValueError:
-        # Playlist name already exists — append a suffix
-        native_pl = create_playlist(
-            name=f"{sp_data['name']} (Spotify)",
-            description=f"Imported from Spotify · {sp_data['owner']}"
-        )
-
-    pl_id = native_pl['id']
-
-    # Step 4: Add tracks to our native playlist
-    matched = []
-    unmatched = []
-
-    for track in sp_tracks:
-        best = track.copy()
-        # Use the playlist cover as a fallback for track art
-        if not best.get('art_url'):
-            best['art_url'] = sp_data['cover_url']
-            best['art_url_small'] = sp_data['cover_url']
-            
-        try:
-            add_to_playlist(pl_id, best)
-            matched.append({**best, 'spotify_source': track})
-        except Exception:
-            unmatched.append(track)
-
-    # Step 5: Optional — enhance with recommendations based on matched tracks
-    recommendations_added = []
-    if req.enhance_with_recommendations and matched:
-        seed_ids = [t['id'] for t in matched[:5] if t.get('id')]
-        try:
-            recs = get_recommendations(seed_ids, limit=5)
-            for rec in recs:
-                add_to_playlist(pl_id, rec)
-                recommendations_added.append(rec)
-        except Exception:
-            pass  # Recommendations are best-effort
-
-    return {
-        'playlist': native_pl,
-        'spotify_metadata': {
-            'name': sp_data['name'],
-            'owner': sp_data['owner'],
-            'cover_url': sp_data['cover_url'],
-            'total_tracks': sp_data['total'],
-        },
-        'stats': {
-            'total': len(sp_tracks),
-            'matched': len(matched),
-            'unmatched': len(unmatched),
-            'recommendations_added': len(recommendations_added),
-        },
-        'matched_tracks': matched,
-        'unmatched_tracks': unmatched,
-        'recommendations': recommendations_added,
-    }
-
-
 # ─── Health Check ───────────────────────────────────────────
 
 @app.get('/health')

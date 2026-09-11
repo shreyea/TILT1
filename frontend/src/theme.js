@@ -1,5 +1,3 @@
-import { Dimensions } from 'react-native';
-
 export const THEMES = {
   Dusk: {
     // Dusk Mode (Abyssal Teal)

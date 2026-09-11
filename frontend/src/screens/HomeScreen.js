@@ -3,15 +3,15 @@ import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, ScrollView, StyleSheet,
   StatusBar, TouchableOpacity, ActivityIndicator, Platform, Image,
-  RefreshControl, Modal, TextInput, Alert, ImageBackground
+  RefreshControl, Modal, TextInput, Alert
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
-import { getRecommendations, getBasedSuggestions, getTrending, getNewReleases, getMoodTracks, getArtistTracks, getPlaylists, addToPlaylist, createPlaylist } from '../api';
-import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
+import { getRecommendations, getBasedSuggestions, getTrending, getNewReleases, getMoodTracks, getArtistTracks } from '../api';
+import { SPACING } from '../theme';
 import * as Storage from '../services/StorageService';
 
 const MOOD_CARDS = [
@@ -61,19 +61,9 @@ export default function HomeScreen({ navigation }) {
   const handleAddToPlaylist = useCallback(async (playlistId) => {
     if (!selectedTrack) return;
     
-    // Get existing tracks
     const existingTracks = await Storage.getPlaylistTracks(playlistId);
-    // Check if already in playlist
     if (!existingTracks.find(t => t.id === selectedTrack.id)) {
-        const updatedTracks = [...existingTracks, selectedTrack];
-        await Storage.savePlaylistTracks(playlistId, updatedTracks);
-    }
-    
-    // Also update backend if still using it for some sync, but we use Storage primarily now as per requirement
-    try {
-        await addToPlaylist(playlistId, selectedTrack);
-    } catch (e) {
-        // Silently fail backend sync
+        await Storage.savePlaylistTracks(playlistId, [...existingTracks, selectedTrack]);
     }
 
     setShowActions(false);
@@ -83,17 +73,7 @@ export default function HomeScreen({ navigation }) {
   const handleCreateAndAdd = useCallback(async () => {
     if (!newPlaylistName.trim() || !selectedTrack) return;
     try {
-      // Create locally
-      let createdId;
-      try {
-        // Try backend first to get a real ID if possible
-        const created = await createPlaylist(newPlaylistName.trim());
-        createdId = created.id;
-      } catch (e) {
-        // Fallback to local only ID
-        createdId = 'local_' + Date.now();
-      }
-
+      const createdId = 'local_' + Date.now();
       const newPlaylist = { id: createdId, name: newPlaylistName.trim(), track_count: 1 };
       const pls = await Storage.getPlaylists();
       await Storage.savePlaylists([...pls, newPlaylist]);
