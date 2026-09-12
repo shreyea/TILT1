@@ -11,6 +11,8 @@ import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatli
 import { getRecommendations, searchSongs, getTrending } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
+import TrackActionSheet from '../components/TrackActionSheet';
+import EmptyState from '../components/EmptyState';
 import PlaylistImportScreen from './PlaylistImportScreen';
 import * as Storage from '../services/StorageService';
 import { trackArt } from '../utils/trackArt';
@@ -36,6 +38,7 @@ export default function LibraryScreen() {
   const [isSearching, setIsSearching] = useState(false);
   
   const [showImport, setShowImport] = useState(false);
+  const [sheetTrack, setSheetTrack] = useState(null);
   const { playTrack, currentTrack, playAll, addToQueue } = usePlayer();
   const searchAbortControllerRef = useRef(null);
 
@@ -228,6 +231,7 @@ export default function LibraryScreen() {
       track={item}
       onPress={() => playAll(likedSongs, index)}
       isPlaying={currentTrack?.id === item.id}
+      onMore={setSheetTrack}
       showIndex={true} index={index}
     />
   ), [likedSongs, currentTrack?.id, playAll]);
@@ -273,11 +277,12 @@ export default function LibraryScreen() {
           renderItem={renderLikedSong}
           contentContainerStyle={{ paddingBottom: 140 }}
           ListEmptyComponent={
-            <View style={s.center}>
-              <Ionicons name="heart-outline" size={64} color={COLORS.textMuted} style={{ marginBottom: 12 }} />
-              <Text style={s.emptyText}>No liked songs yet</Text>
-              <Text style={s.emptySub}>Tap the heart on any song to save it here</Text>
-            </View>
+            <EmptyState
+              compact
+              icon="heart-outline"
+              title="Nothing liked yet"
+              body="Tap the heart on any song and it lands here, ready to play."
+            />
           }
         />
       </View>
@@ -364,18 +369,25 @@ export default function LibraryScreen() {
   return (
     <View style={s.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <LinearGradient colors={[COLORS.secondary + '20', COLORS.background]} style={s.header}>
-        <Text style={s.headerTitle}>Your Library</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity onPress={() => setShowImport(true)} style={[s.createBtn, { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.primary + '20', borderWidth: 1, borderColor: COLORS.primary + '40' }]}>
-            <Ionicons name="download-outline" size={16} color={COLORS.primary} />
-            <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '700' }}>Import</Text>
+      <View style={s.header}>
+        <Text style={s.headerTitle}>Library</Text>
+        <View style={s.headerActions}>
+          <TouchableOpacity
+            onPress={() => setShowImport(true)}
+            style={s.ghostBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="download-outline" size={17} color={COLORS.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowCreate(true)} style={s.createBtn}>
-            <Ionicons name="add" size={28} color={COLORS.primary} />
+          <TouchableOpacity
+            onPress={() => setShowCreate(true)}
+            style={s.ghostBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="add" size={21} color={COLORS.textSecondary} />
           </TouchableOpacity>
         </View>
-      </LinearGradient>
+      </View>
 
       <FlatList
         data={[{ type: 'liked' }, ...playlists.map(p => ({ type: 'playlist', ...p }))]}
@@ -389,9 +401,9 @@ export default function LibraryScreen() {
           if (item.type === 'liked') {
             return (
               <TouchableOpacity style={s.plCard} onPress={() => setShowLiked(true)} activeOpacity={0.7}>
-                <LinearGradient colors={['#EF444440', '#EF444420']} style={s.likedArt}>
-                  <Ionicons name="heart" size={28} color="#EF4444" />
-                </LinearGradient>
+                <View style={s.likedArt}>
+                  <Ionicons name="heart" size={22} color={COLORS.primary} />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.plName}>Liked Songs</Text>
                   <Text style={s.plCount}>{likedSongs.length} songs</Text>
@@ -423,10 +435,16 @@ export default function LibraryScreen() {
         }}
         contentContainerStyle={{ paddingBottom: 140 }}
         ListEmptyComponent={
-          <View style={s.center}>
-            <Ionicons name="library-outline" size={64} color={COLORS.textMuted} style={{ marginBottom: 12 }} />
-            <Text style={s.emptyText}>{loading ? 'Loading...' : 'No playlists yet'}</Text>
-          </View>
+          loading ? null : (
+            <EmptyState
+              compact
+              icon="albums-outline"
+              title="Your library is empty"
+              body="Import a YouTube playlist or start one from scratch — everything lives on this device."
+              actionLabel="Import a playlist"
+              onAction={() => setShowImport(true)}
+            />
+          )
         }
       />
 
@@ -510,6 +528,7 @@ export default function LibraryScreen() {
           }}
         />
       </Modal>
+      <TrackActionSheet track={sheetTrack} visible={!!sheetTrack} onClose={() => setSheetTrack(null)} />
     </View>
   );
 }
@@ -520,7 +539,13 @@ const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: 20,
     paddingBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end',
   },
-  headerTitle: { fontSize: 34, fontWeight: '800', color: '#FFF' },
+  headerTitle: { fontSize: 30, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.6 },
+  headerActions: { flexDirection: 'row', gap: 4 },
+  ghostBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    borderWidth: 1, borderColor: COLORS.cardBorder,
+    justifyContent: 'center', alignItems: 'center',
+  },
   createBtn: {
     width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.surfaceLight,
     justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.cardBorder,
@@ -528,9 +553,11 @@ const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
   plCard: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 },
   plArt: { width: 56, height: 56, borderRadius: 12 },
   likedArt: {
-    width: 56, height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center',
+    width: 56, height: 56, borderRadius: 12,
+    borderWidth: 1, borderColor: COLORS.cardBorder,
+    justifyContent: 'center', alignItems: 'center',
   },
-  plName: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  plName: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '600' },
   plCount: { color: COLORS.textSecondary, fontSize: 13, marginTop: 2 },
   plHeader: { paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: 20, paddingBottom: 20 },
   backBtn: { alignSelf: 'flex-start', paddingBottom: 12 },

@@ -5,14 +5,12 @@ import { useTheme } from '../context/ThemeContext';
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Image, StyleSheet,
-  Dimensions, ActivityIndicator
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayer } from '../context/PlayerContext';
 import * as Storage from '../services/StorageService';
 import { trackArt } from '../utils/trackArt';
-
-const { width: W } = Dimensions.get('window');
 
 function MiniPlayer({ onPress, tabBarHeight = 68 }) {
   const { COLORS, SHADOWS } = useTheme();

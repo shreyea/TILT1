@@ -1,141 +1,137 @@
-export const THEMES = {
-  Dusk: {
-    // Dusk Mode (Abyssal Teal)
-    background: '#011218',
-    surface: '#042029',
-    surfaceLight: '#07303A',
-    surfaceElevated: '#0A404D',
-    
-    primary: '#A855F7',       // Prism Orchid
-    primaryLight: '#C084FC',
-    primaryDark: '#7E22CE',
-    
-    secondary: '#4A7A8C',     // Steely Cyan
-    secondaryDark: '#385F6E',
-    
-    gradientStart: '#A855F7',
-    gradientMid: '#042029',
-    gradientEnd: '#4A7A8C',
-    
-    textPrimary: '#F1F5F9',   // Arctic White
-    textSecondary: '#64748B', // Deep Fog Gray
-    textMuted: '#475569',
-    
-    error: '#EF4444',
-    success: '#4A7A8C',
-    warning: '#F59E0B',
-    liked: '#A855F7',
-    
-    playerBackground: '#011A24',
-    seekBarTrack: '#042029',
-    seekBarFill: '#A855F7',
-    
-    cardBorder: 'rgba(168, 85, 247, 0.1)',
-    cardGlow: 'rgba(168, 85, 247, 0.05)',
-    
-    overlay: 'rgba(1, 18, 24, 0.7)',
-    overlayLight: 'rgba(1, 18, 24, 0.4)',
-  },
-  Dawn: {
-    // Dawn Mode (Velvet Dawn)
-    background: '#F9F0F0',    // Matte Blush
-    surface: '#F2E3E3',       // Soft Clay
-    surfaceLight: '#E8D3D3',
-    surfaceElevated: '#DCC3C3',
-    
-    primary: '#B34E6B',       // Deep Berry Pink
-    primaryLight: '#D27891',
-    primaryDark: '#8F3550',
-    
-    secondary: '#D4A5B1',     // Dusty Rose
-    secondaryDark: '#B88290',
-    
-    gradientStart: '#B34E6B',
-    gradientMid: '#F2E3E3',
-    gradientEnd: '#D4A5B1',
-    
-    textPrimary: '#2D1E22',   // Charcoal Rose
-    textSecondary: '#8A767A', // Warm Ash
-    textMuted: '#A69296',
-    
-    error: '#DC2626',
-    success: '#D4A5B1',
-    warning: '#D97706',
-    liked: '#B34E6B',
-    
-    playerBackground: '#F4E8E8',
-    seekBarTrack: '#E8D3D3',
-    seekBarFill: '#B34E6B',
-    
-    cardBorder: 'rgba(179, 78, 107, 0.1)',
-    cardGlow: 'rgba(179, 78, 107, 0.05)',
-    
-    overlay: 'rgba(249, 240, 240, 0.7)',
-    overlayLight: 'rgba(249, 240, 240, 0.4)',
-  },
-  Teal: {
-    // Teal Mode
-    background: '#022A36',
-    surface: '#0B3C48',
-    surfaceLight: '#114B5A',
-    surfaceElevated: '#175E70',
-    
-    primary: '#E2B13C',       // Accent: Liquid Gold
-    primaryLight: '#E8C56B',
-    primaryDark: '#B88A22',
-    
-    secondary: '#87A8A4',     // Subtle Accent: Soft Sage
-    secondaryDark: '#6D8F8A',
-    
-    gradientStart: '#0B3C48',
-    gradientMid: '#022A36',
-    gradientEnd: '#87A8A4',
-    
-    textPrimary: '#EAEFF0',   // Crisp Off-White
-    textSecondary: '#7E9398', // Ghost Gray
-    textMuted: '#5C7479',
-    
-    error: '#EF4444',
-    success: '#87A8A4',
-    warning: '#F59E0B',
-    liked: '#E2B13C',
-    
-    playerBackground: '#02212B',
-    seekBarTrack: '#0B3C48',
-    seekBarFill: '#E2B13C',
-    
-    cardBorder: 'rgba(135, 168, 164, 0.1)',
-    cardGlow: 'rgba(226, 177, 60, 0.05)',
-    
-    overlay: 'rgba(2, 42, 54, 0.7)',
-    overlayLight: 'rgba(2, 42, 54, 0.4)',
-  }
+// src/theme.js
+// Two themes, both dark, both built on the same token names so screens never
+// branch on which one is active.
+//
+//   Teal — deep teal-black ground, warm gold accent.
+//   Noir — neutral charcoal ground, moon-white accent.
+//
+// In each, exactly one accent colour is saturated. Everything gold (Teal) or
+// bright white (Noir) reads as "interactive or playing", which is what lets
+// the UI drop cards and borders and still stay legible.
+
+const TEAL = {
+  key: 'Teal',
+  label: 'Teal',
+
+  background: '#010E12',
+  surface: '#04191F',
+  surfaceLight: '#07262F',
+  surfaceElevated: '#0C3441',
+
+  primary: '#E8BE5A',
+  primaryLight: '#F3D488',
+  primaryDark: '#B98C2C',
+
+  secondary: '#6FA8A3',
+  secondaryDark: '#4F8480',
+
+  gradientStart: '#04191F',
+  gradientMid: '#010E12',
+  gradientEnd: '#6FA8A3',
+
+  textPrimary: '#EFF5F5',
+  textSecondary: '#8FA7AB',
+  textMuted: '#546B70',
+
+  error: '#E0645C',
+  success: '#6FA8A3',
+  warning: '#E5A03C',
+  liked: '#E8BE5A',
+
+  playerBackground: '#010E12',
+  seekBarTrack: 'rgba(255,255,255,0.10)',
+  seekBarFill: '#E8BE5A',
+
+  cardBorder: 'rgba(255,255,255,0.07)',
+  cardGlow: 'rgba(232,190,90,0.06)',
+  divider: 'rgba(255,255,255,0.05)',
+
+  overlay: 'rgba(1,14,18,0.74)',
+  overlayLight: 'rgba(1,14,18,0.42)',
+
+  // Backdrop wash behind blurred artwork.
+  scrim: ['rgba(1,14,18,0.55)', 'rgba(1,14,18,0.88)', '#010E12'],
 };
+
+const NOIR = {
+  key: 'Noir',
+  label: 'Noir',
+
+  background: '#08090A',
+  surface: '#121315',
+  surfaceLight: '#1A1B1E',
+  surfaceElevated: '#232428',
+
+  // Moon white carries the accent role here — no hue, just light.
+  primary: '#EFECE4',
+  primaryLight: '#FFFFFF',
+  primaryDark: '#BFBBB2',
+
+  secondary: '#8A8A93',
+  secondaryDark: '#66666E',
+
+  gradientStart: '#121315',
+  gradientMid: '#08090A',
+  gradientEnd: '#8A8A93',
+
+  textPrimary: '#F4F3EF',
+  textSecondary: '#9A9AA3',
+  textMuted: '#5C5C64',
+
+  error: '#D9645C',
+  success: '#A8A8B0',
+  warning: '#D8B26A',
+  liked: '#EFECE4',
+
+  playerBackground: '#08090A',
+  seekBarTrack: 'rgba(255,255,255,0.12)',
+  seekBarFill: '#EFECE4',
+
+  cardBorder: 'rgba(255,255,255,0.08)',
+  cardGlow: 'rgba(239,236,228,0.05)',
+  divider: 'rgba(255,255,255,0.06)',
+
+  overlay: 'rgba(8,9,10,0.76)',
+  overlayLight: 'rgba(8,9,10,0.44)',
+
+  scrim: ['rgba(8,9,10,0.55)', 'rgba(8,9,10,0.88)', '#08090A'],
+};
+
+export const THEMES = { Teal: TEAL, Noir: NOIR };
+export const THEME_ORDER = ['Teal', 'Noir'];
+export const DEFAULT_THEME = 'Teal';
+
+// Default palette for the few places that render before the provider mounts.
+export const COLORS = TEAL;
 
 export const SPACING = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
 export const FONT_SIZE = { xs: 10, sm: 12, md: 14, lg: 16, xl: 18, xxl: 22, xxxl: 28, title: 34 };
 export const BORDER_RADIUS = { sm: 6, md: 10, lg: 14, xl: 18, xxl: 24, full: 999 };
 
-export const getShadows = (COLORS) => ({
+// Shadows lift the few things that genuinely float (the play button, the mini
+// player) — not every list row.
+export const getShadows = (palette = COLORS) => ({
   card: {
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.38,
+    shadowRadius: 18,
+    elevation: 6,
   },
   player: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
+    shadowOpacity: 0.42,
+    shadowRadius: 24,
     elevation: 20,
   },
   button: {
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 8,
   },
 });
+
+export const SHADOWS = getShadows(COLORS);

@@ -1,10 +1,10 @@
 // src/components/AudioVisualizer.js
-// Real-time, audio-reactive bar visualizer for the Now Playing screen.
-// Reads actual PCM frames from expo-audio's sampling API (not a fake/random
-// animation) and buckets them into bars. Falls back to a slow ambient pulse
-// when sampling isn't available — web, or the rare case where playback is
-// running through the YouTube embed fallback (no sample access there).
-import React, { useEffect, useCallback, useMemo } from 'react';
+// Audio-reactive spectrum, drawn straight onto the screen — no card, no
+// border. Reads real PCM frames from expo-audio's sampling API and splits the
+// buffer into bands, so the shape follows the music rather than looping a
+// canned animation. Each bar is tinted across a teal→gold ramp by position,
+// and brightens as it peaks.
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -17,55 +17,59 @@ import { useAudioSampleListener, requestRecordingPermissionsAsync, getRecordingP
 import { usePlayer } from '../context/PlayerContext';
 import { useTheme } from '../context/ThemeContext';
 
-const BAR_COUNT = 28;
-const GAIN = 3.2;
-const BAR_MAX_HEIGHT = 84;
-const BAR_MIN_HEIGHT = 6;
+const BAR_COUNT = 36;
+const GAIN = 3.6;
 
-let permissionRequestInFlight = false;
+let permissionRequested = false;
 
-// Sampling requires RECORD_AUDIO (Android) / mic usage description (iOS) at
-// the OS level even though we're only reading playback audio, not the mic.
+// Sampling sits behind RECORD_AUDIO on Android even though we only read
+// playback, never the mic.
 function useSamplingPermissionOnce(enabled) {
   useEffect(() => {
-    if (!enabled || permissionRequestInFlight) return;
-    permissionRequestInFlight = true;
+    if (!enabled || permissionRequested) return;
+    permissionRequested = true;
     (async () => {
       try {
         const current = await getRecordingPermissionsAsync();
-        if (!current?.granted) {
-          await requestRecordingPermissionsAsync();
-        }
+        if (!current?.granted) await requestRecordingPermissionsAsync();
       } catch (e) {
-        // Sampling just won't light up — visualizer falls back to idle mode.
+        // Visualizer just stays in its idle state.
       }
     })();
   }, [enabled]);
 }
 
-function Bar({ index, levels, color }) {
+// Blend teal -> gold across the spectrum so low and high bands read differently.
+function bandColor(t, COLORS) {
+  const from = [127, 179, 174];  // secondary
+  const to = [232, 190, 90];     // primary
+  const c = from.map((v, i) => Math.round(v + (to[i] - v) * t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+function Bar({ index, levels, color, maxHeight }) {
   const style = useAnimatedStyle(() => {
-    const v = levels.value[index] ?? 0.05;
+    const v = levels.value[index] ?? 0.04;
     return {
-      height: withTiming(BAR_MIN_HEIGHT + v * BAR_MAX_HEIGHT, { duration: 110 }),
-      opacity: 0.4 + v * 0.6,
+      height: withTiming(4 + v * maxHeight, { duration: 95 }),
+      opacity: 0.35 + v * 0.65,
     };
   });
   return <Animated.View style={[styles.bar, { backgroundColor: color }, style]} />;
 }
 
-function LiveBars({ player, color }) {
-  const levels = useSharedValue(new Array(BAR_COUNT).fill(0.05));
+function LiveBars({ player, colors, maxHeight }) {
+  const levels = useSharedValue(new Array(BAR_COUNT).fill(0.04));
 
   const handleSample = useCallback((sample) => {
     const frames = sample?.channels?.[0]?.frames;
     if (!frames || frames.length === 0) return;
 
-    const bucketSize = Math.max(1, Math.floor(frames.length / BAR_COUNT));
+    const bucket = Math.max(1, Math.floor(frames.length / BAR_COUNT));
     const next = new Array(BAR_COUNT);
     for (let i = 0; i < BAR_COUNT; i++) {
-      const start = i * bucketSize;
-      const end = i === BAR_COUNT - 1 ? frames.length : Math.min(frames.length, start + bucketSize);
+      const start = i * bucket;
+      const end = i === BAR_COUNT - 1 ? frames.length : Math.min(frames.length, start + bucket);
       let sum = 0;
       for (let j = start; j < end; j++) sum += frames[j] * frames[j];
       const rms = Math.sqrt(sum / Math.max(1, end - start));
@@ -76,45 +80,37 @@ function LiveBars({ player, color }) {
 
   useAudioSampleListener(player, handleSample);
 
-  const barIndices = useMemo(() => Array.from({ length: BAR_COUNT }, (_, i) => i), []);
-
   return (
     <View style={styles.row}>
-      {barIndices.map((i) => (
-        <Bar key={i} index={i} levels={levels} color={color} />
+      {colors.map((color, i) => (
+        <Bar key={i} index={i} levels={levels} color={color} maxHeight={maxHeight} />
       ))}
     </View>
   );
 }
 
-function IdleBar({ t, phase, color }) {
-  const style = useAnimatedStyle(() => {
-    const wave = 0.1 + 0.06 * Math.sin((t.value + phase) * Math.PI * 2);
-    return { height: BAR_MIN_HEIGHT + wave * BAR_MAX_HEIGHT, opacity: 0.22 };
-  });
-  return <Animated.View style={[styles.bar, { backgroundColor: color }, style]} />;
-}
-
-function IdleBars({ color }) {
+function IdleBars({ colors, maxHeight }) {
   const t = useSharedValue(0);
 
   useEffect(() => {
-    t.value = withRepeat(
-      withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
+    t.value = withRepeat(withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.sin) }), -1, true);
   }, [t]);
-
-  const barIndices = useMemo(() => Array.from({ length: BAR_COUNT }, (_, i) => i), []);
 
   return (
     <View style={styles.row}>
-      {barIndices.map((i) => (
-        <IdleBar key={i} t={t} phase={i / BAR_COUNT} color={color} />
+      {colors.map((color, i) => (
+        <IdleBar key={i} t={t} phase={i / colors.length} color={color} maxHeight={maxHeight} />
       ))}
     </View>
   );
+}
+
+function IdleBar({ t, phase, color, maxHeight }) {
+  const style = useAnimatedStyle(() => {
+    const wave = 0.30 + 0.22 * Math.sin((t.value + phase) * Math.PI * 2);
+    return { height: 4 + wave * maxHeight, opacity: 0.45 };
+  });
+  return <Animated.View style={[styles.bar, { backgroundColor: color }, style]} />;
 }
 
 export default function AudioVisualizer({ active, size }) {
@@ -124,37 +120,26 @@ export default function AudioVisualizer({ active, size }) {
   const canSample = !!(active && playbackMode === 'native' && player?.isAudioSamplingSupported);
   useSamplingPermissionOnce(canSample);
 
+  const colors = useMemo(
+    () => Array.from({ length: BAR_COUNT }, (_, i) => bandColor(i / (BAR_COUNT - 1), COLORS)),
+    [COLORS]
+  );
+
   if (!active) return null;
 
+  const maxHeight = Math.max(110, (size || 240) * 0.62);
+
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
-      {canSample && isPlaying ? (
-        <LiveBars player={player} color={COLORS.textPrimary} />
-      ) : (
-        <IdleBars color={COLORS.textPrimary} />
-      )}
+    <View style={[styles.container, { height: size }]}>
+      {canSample && isPlaying
+        ? <LiveBars player={player} colors={colors} maxHeight={maxHeight} />
+        : <IdleBars colors={colors} maxHeight={maxHeight} />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    gap: 5,
-    height: BAR_MAX_HEIGHT + BAR_MIN_HEIGHT,
-  },
-  bar: {
-    width: 5,
-    borderRadius: 3,
-  },
+  container: { width: '100%', justifyContent: 'center', alignItems: 'center' },
+  row: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 4 },
+  bar: { width: 4, borderRadius: 2 },
 });

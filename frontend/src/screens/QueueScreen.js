@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
+import EmptyState from '../components/EmptyState';
 
 export default function QueueScreen() {
   const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
@@ -68,11 +69,12 @@ export default function QueueScreen() {
         )}
         contentContainerStyle={{ paddingBottom: 140 }}
         ListEmptyComponent={
-          <View style={s.center}>
-            <Ionicons name="list" size={64} color={COLORS.textMuted} style={{ marginBottom: 12 }} />
-            <Text style={s.emptyText}>Queue is empty</Text>
-            <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>Search and add songs to play next</Text>
-          </View>
+          <EmptyState
+            compact
+            icon="layers-outline"
+            title="Nothing queued up"
+            body="Tap the dots on any song and choose Add to queue to line up what plays next."
+          />
         }
       />
     </View>

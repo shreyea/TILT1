@@ -1,53 +1,55 @@
 // src/context/ThemeContext.js
-// Provides theme colors and toggle. Persists selection via AsyncStorage.
+// Holds the active palette and persists the choice. Both themes expose the
+// same token names, so screens read `COLORS.x` and never branch on the theme.
 import React, { createContext, useContext, useState, useMemo, useEffect, useRef } from 'react';
-import { THEMES, getShadows } from '../theme';
+import { THEMES, THEME_ORDER, DEFAULT_THEME, getShadows } from '../theme';
 import * as Storage from '../services/StorageService';
 
-const ThemeContext = createContext();
-
-const THEME_CYCLE = ['Teal', 'Dusk', 'Dawn'];
+const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
-  const [themeName, setThemeName] = useState('Teal');
-  const initializedRef = useRef(false);
+  const [themeName, setThemeName] = useState(DEFAULT_THEME);
+  const restored = useRef(false);
 
-  // Restore saved theme on mount
   useEffect(() => {
     (async () => {
       try {
         const saved = await Storage.getTheme();
-        if (saved && THEMES[saved]) {
-          setThemeName(saved);
-        }
+        if (saved && THEMES[saved]) setThemeName(saved);
       } catch (e) {
-        console.warn('Failed to restore theme:', e);
+        // Keep the default palette.
+      } finally {
+        restored.current = true;
       }
-      initializedRef.current = true;
     })();
   }, []);
 
-  // Persist theme on change
+  // Don't write on the first render — that would overwrite the stored value
+  // with the default before it has been read back.
   useEffect(() => {
-    if (!initializedRef.current) return;
+    if (!restored.current) return;
     Storage.saveTheme(themeName);
   }, [themeName]);
 
-  const toggleTheme = () => {
-    setThemeName((prev) => {
-      const idx = THEME_CYCLE.indexOf(prev);
-      return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
-    });
-  };
+  const value = useMemo(() => {
+    const COLORS = THEMES[themeName] || THEMES[DEFAULT_THEME];
+    return {
+      COLORS,
+      SHADOWS: getShadows(COLORS),
+      themeName,
+      themes: THEME_ORDER,
+      setTheme: (name) => {
+        if (THEMES[name]) setThemeName(name);
+      },
+      toggleTheme: () =>
+        setThemeName((prev) => {
+          const i = THEME_ORDER.indexOf(prev);
+          return THEME_ORDER[(i + 1) % THEME_ORDER.length];
+        }),
+    };
+  }, [themeName]);
 
-  const COLORS = THEMES[themeName] || THEMES.Teal;
-  const SHADOWS = useMemo(() => getShadows(COLORS), [COLORS]);
-
-  return (
-    <ThemeContext.Provider value={{ COLORS, SHADOWS, themeName, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

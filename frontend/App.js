@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { NavigationContainer } from '@react-navigation/native';
 import YouTubePlayerBridge from './src/components/YouTubePlayerBridge';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -13,7 +14,6 @@ import HomeScreen from './src/screens/HomeScreen';
 import NowPlayingScreen from './src/screens/NowPlayingScreen';
 import IntroScreen from './src/screens/IntroScreen';
 import MiniPlayer from './src/components/MiniPlayer';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { PlayerProvider } from './src/context/PlayerContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -60,55 +60,80 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// ─── Tab Icon ───────────────────────────────────────────────
+// ─── Tab Bar ────────────────────────────────────────────────
+// Custom bar instead of the stock one: icon-only, with a short accent rule
+// marking the active tab. Labels and a filled bar were adding weight the rest
+// of the UI had already shed.
 
-function TabIcon({ label, focused }) {
+const TAB_ICONS = {
+  Home: ['home-outline', 'home'],
+  Search: ['search-outline', 'search'],
+  Library: ['library-outline', 'library'],
+  Queue: ['list-outline', 'list'],
+};
+
+function TabBar({ state, navigation }) {
   const { COLORS } = useTheme();
-  const icons = { 
-    Home: focused ? 'home' : 'home-outline',
-    Search: focused ? 'search' : 'search-outline', 
-    Library: focused ? 'library' : 'library-outline', 
-    Queue: focused ? 'list' : 'list-outline' 
-  };
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 10 : 0);
+
   return (
-    <View style={{ alignItems: 'center', paddingTop: 6 }}>
-      <Ionicons name={icons[label]} size={22} color={focused ? COLORS.primary : COLORS.textMuted} />
+    <View style={[tabStyles.wrap, { paddingBottom: bottomPad, backgroundColor: COLORS.background }]}>
+      <View style={[tabStyles.hairline, { backgroundColor: COLORS.divider }]} />
+      <View style={tabStyles.row}>
+        {state.routes.map((route, index) => {
+          const focused = state.index === index;
+          const [idle, active] = TAB_ICONS[route.name] || TAB_ICONS.Home;
+
+          return (
+            <TouchableOpacity
+              key={route.key}
+              accessibilityRole="button"
+              accessibilityState={focused ? { selected: true } : {}}
+              accessibilityLabel={route.name}
+              onPress={() => {
+                const event = navigation.emit({
+                  type: 'tabPress',
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+                if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+              }}
+              style={tabStyles.tab}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={focused ? active : idle}
+                size={21}
+                color={focused ? COLORS.primary : COLORS.textMuted}
+              />
+              <View
+                style={[
+                  tabStyles.marker,
+                  focused && { backgroundColor: COLORS.primary },
+                ]}
+              />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
-function Tabs() {
-  const { COLORS } = useTheme();
-  const insets = useSafeAreaInsets();
-  // Properly account for the system navigation bar on Android
-  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 0);
-  const tabBarHeight = 56 + bottomPad;
+const tabStyles = StyleSheet.create({
+  wrap: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  hairline: { height: 1, width: '100%' },
+  row: { flexDirection: 'row', paddingTop: 11 },
+  tab: { flex: 1, alignItems: 'center', gap: 7, paddingBottom: 6 },
+  marker: { width: 14, height: 2, borderRadius: 1, backgroundColor: 'transparent' },
+});
 
+function Tabs() {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarStyle: {
-          position: 'absolute',
-          borderTopWidth: 0,
-          elevation: 0,
-          backgroundColor: 'transparent',
-          height: tabBarHeight,
-          paddingBottom: bottomPad,
-          paddingTop: 6,
-        },
-        tabBarBackground: () => (
-          Platform.OS === 'ios' ? (
-            <BlurView tint="dark" intensity={90} style={StyleSheet.absoluteFill} />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.background, opacity: 0.95 }]} />
-          )
-        ),
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textMuted,
-        tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: -2 },
-      })}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <TabBar {...props} />}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
@@ -145,6 +170,10 @@ function AppContent() {
   
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
+    nowPlayingOverlay: {
+      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: COLORS.background, zIndex: 100, elevation: 100,
+    },
   }), [COLORS]);
 
   return (
@@ -155,14 +184,15 @@ function AppContent() {
         onPress={() => setShowNowPlaying(true)}
         tabBarHeight={tabBarHeight}
       />
-      <Modal
-        visible={showNowPlaying}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowNowPlaying(false)}
-      >
-        <NowPlayingScreen onClose={() => setShowNowPlaying(false)} />
-      </Modal>
+      {showNowPlaying && (
+        <Animated.View
+          style={styles.nowPlayingOverlay}
+          entering={SlideInDown.duration(260)}
+          exiting={SlideOutDown.duration(200)}
+        >
+          <NowPlayingScreen onClose={() => setShowNowPlaying(false)} />
+        </Animated.View>
+      )}
     </View>
   );
 }

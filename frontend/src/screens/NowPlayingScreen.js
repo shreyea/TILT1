@@ -1,21 +1,26 @@
-import { useTheme } from '../context/ThemeContext';
+// src/screens/NowPlayingScreen.js
+// Full-bleed player. The artwork itself is the background — blurred and
+// darkened — so the screen needs no panels or cards. Cover / Pulse / Lyrics
+// swap through the same stage area; everything else is type and one accent.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, Image, TouchableOpacity, StyleSheet, useWindowDimensions,
-  StatusBar, Platform, ActivityIndicator, Modal, ScrollView,
-  TextInput, Alert
+  StatusBar, Platform, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { useTheme } from '../context/ThemeContext';
 import { usePlayer } from '../context/PlayerContext';
 import AudioSettingsScreen from './AudioSettingsScreen';
 import AudioVisualizer from '../components/AudioVisualizer';
 import AmbientPulse from '../components/AmbientPulse';
+import TrackActionSheet from '../components/TrackActionSheet';
 import * as Storage from '../services/StorageService';
 import { trackArt } from '../utils/trackArt';
 import { fetchLyrics as lookupLyrics } from '../services/LyricsService';
+
 function fmt(ms) {
   if (!ms || ms < 0) return '0:00';
   const m = Math.floor(ms / 60000);
@@ -24,61 +29,60 @@ function fmt(ms) {
 }
 
 const STAGES = [
-  { key: 'art', label: 'Cover', icon: 'image-outline' },
-  { key: 'visualizer', label: 'Pulse', icon: 'pulse-outline' },
-  { key: 'lyrics', label: 'Lyrics', icon: 'document-text-outline' },
+  { key: 'art', label: 'Cover' },
+  { key: 'visualizer', label: 'Pulse' },
+  { key: 'lyrics', label: 'Lyrics' },
 ];
 
 export default function NowPlayingScreen({ onClose }) {
-  const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
+  const { COLORS } = useTheme();
   const { width: W, height: H } = useWindowDimensions();
-  const stageSize = Math.min(W * 0.8, 340);
-  const s = useMemo(() => createStyles(COLORS, SHADOWS, W, H, stageSize), [COLORS, SHADOWS, W, H, stageSize]);
+  const stageSize = Math.min(W * 0.78, 330);
+  const s = useMemo(() => createStyles(COLORS, W, H, stageSize), [COLORS, W, H, stageSize]);
 
   const {
     currentTrack, isPlaying, isLoading, position, duration,
     volume, repeatMode, shuffleOn,
     togglePlay, seekTo, changeVolume, playNext, playPrevious,
-    toggleShuffle, cycleRepeat, addToQueue,
+    toggleShuffle, cycleRepeat,
   } = usePlayer();
+
   const [liked, setLiked] = useState(false);
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [showAmbient, setShowAmbient] = useState(false);
-  const [stageMode, setStageMode] = useState('art'); // 'art' | 'visualizer' | 'lyrics'
+  const [showSheet, setShowSheet] = useState(false);
+  const [stageMode, setStageMode] = useState('art');
+
   const [syncedLines, setSyncedLines] = useState([]);
   const [plainLyrics, setPlainLyrics] = useState(null);
   const [loadingLyrics, setLoadingLyrics] = useState(false);
   const [lyricsError, setLyricsError] = useState(null);
-  // Playlist modal state
-  const [showPlaylist, setShowPlaylist] = useState(false);
-  const [playlists, setPlaylists] = useState([]);
-  const [showNewPlaylist, setShowNewPlaylist] = useState(false);
-  const [newPlaylistName, setNewPlaylistName] = useState('');
+
   useEffect(() => {
     if (!currentTrack?.id) return;
     Storage.getLikedSongs()
       .then(songs => setLiked(songs.some(t => t.id === currentTrack.id)))
       .catch(() => {});
   }, [currentTrack?.id]);
-  const handleLike = async () => {
-    if (!currentTrack) return;
-    const localLiked = await Storage.getLikedSongs();
-    const isLiked = localLiked.some(t => t.id === currentTrack.id);
-    const updated = isLiked
-      ? localLiked.filter(t => t.id !== currentTrack.id)
-      : [currentTrack, ...localLiked];
 
-    await Storage.saveLikedSongs(updated);
+  const handleLike = useCallback(async () => {
+    if (!currentTrack) return;
+    const songs = await Storage.getLikedSongs();
+    const isLiked = songs.some(t => t.id === currentTrack.id);
+    await Storage.saveLikedSongs(
+      isLiked ? songs.filter(t => t.id !== currentTrack.id) : [currentTrack, ...songs]
+    );
     setLiked(!isLiked);
-  };
-  // Reset stage + lyrics when track changes
+  }, [currentTrack]);
+
+  // Reset the stage whenever the song changes.
   useEffect(() => {
     setStageMode('art');
     setSyncedLines([]);
     setPlainLyrics(null);
     setLyricsError(null);
   }, [currentTrack?.id]);
-  // Fetch lyrics via LyricsService (handles noisy YouTube titles + fallbacks)
+
   const fetchLyrics = useCallback(async () => {
     if (!currentTrack) return;
     setLoadingLyrics(true);
@@ -103,13 +107,13 @@ export default function NowPlayingScreen({ onClose }) {
     }
   }, [currentTrack]);
 
-  const selectStage = async (mode) => {
+  const selectStage = useCallback(async (mode) => {
     setStageMode(mode);
     if (mode === 'lyrics' && !syncedLines.length && !plainLyrics && !lyricsError) {
       await fetchLyrics();
     }
-  };
-  // Find the current active line based on position
+  }, [syncedLines.length, plainLyrics, lyricsError, fetchLyrics]);
+
   const activeLineIndex = useMemo(() => {
     if (!syncedLines.length) return -1;
     let idx = -1;
@@ -119,58 +123,23 @@ export default function NowPlayingScreen({ onClose }) {
     }
     return idx;
   }, [position, syncedLines]);
-  // Playlist modal handlers
-  const handleOpenPlaylistModal = async () => {
-    const pls = await Storage.getPlaylists();
-    setPlaylists(pls);
-    setShowPlaylist(true);
-  };
-  const handleAddToPlaylist = async (playlistId) => {
-    if (!currentTrack) return;
-    try {
-      const existing = await Storage.getPlaylistTracks(playlistId);
-      if (!existing.find(t => t.id === currentTrack.id)) {
-        await Storage.savePlaylistTracks(playlistId, [...existing, currentTrack]);
-      }
-      setShowPlaylist(false);
-      Alert.alert('Added', `"${currentTrack.title}" added to playlist.`);
-    } catch (e) {
-      Alert.alert('Error', 'Could not add to playlist.');
-    }
-  };
-  const handleCreateAndAdd = async () => {
-    if (!newPlaylistName.trim() || !currentTrack) return;
-    try {
-      const id = 'local_' + Date.now();
-      const pls = await Storage.getPlaylists();
-      await Storage.savePlaylists([...pls, { id, name: newPlaylistName.trim(), track_count: 1 }]);
-      await Storage.savePlaylistTracks(id, [currentTrack]);
-      setNewPlaylistName('');
-      setShowNewPlaylist(false);
-      setShowPlaylist(false);
-      Alert.alert('Done', `Created "${newPlaylistName}" and added the track.`);
-    } catch {
-      Alert.alert('Error', 'Could not create playlist.');
-    }
-  };
+
   if (!currentTrack) {
     return (
-      <View style={s.container}>
+      <View style={[s.container, s.centered]}>
         <StatusBar barStyle="light-content" />
-        <Ionicons name="musical-notes-outline" size={64} color={COLORS.textMuted} />
-        <Text style={{ color: COLORS.textSecondary, fontSize: 16, marginTop: 16 }}>No track playing</Text>
+        <Ionicons name="musical-notes-outline" size={54} color={COLORS.textMuted} />
+        <Text style={s.emptyText}>Nothing playing</Text>
+        <TouchableOpacity onPress={onClose} style={s.emptyBtn}>
+          <Text style={s.emptyBtnText}>Go back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
-  const getRepeatIcon = () => {
-    if (repeatMode === 'off') return 'repeat-outline';
-    if (repeatMode === 'one') return 'sync';
-    return 'repeat';
-  };
-  const progress = duration > 0 ? position / duration : 0;
-  // Centered "now playing" lyric — current line big and bold in the middle,
-  // faint previous/next line for context, no card/box behind it.
-  const renderSyncedLyrics = () => {
+
+  const art = trackArt(currentTrack);
+
+  const renderLyrics = () => {
     const hasActive = activeLineIndex >= 0;
     const current = hasActive ? syncedLines[activeLineIndex] : syncedLines[0];
     const prevLine = hasActive && activeLineIndex > 0 ? syncedLines[activeLineIndex - 1] : null;
@@ -179,20 +148,20 @@ export default function NowPlayingScreen({ onClose }) {
       : syncedLines[1] || null;
 
     return (
-      <View style={s.lyricsCenterWrap}>
+      <View style={s.lyricsWrap}>
         {prevLine ? (
           <TouchableOpacity activeOpacity={0.7} onPress={() => seekTo(prevLine.time)}>
-            <Text style={s.lyricsLineFaded} numberOfLines={2}>{prevLine.text}</Text>
+            <Text style={s.lyricFaded} numberOfLines={2}>{prevLine.text}</Text>
           </TouchableOpacity>
-        ) : <View style={s.lyricsLineFadedSpacer} />}
+        ) : <View style={s.lyricSpacer} />}
 
-        <Text style={s.lyricsLineCurrent} numberOfLines={3}>{current?.text}</Text>
+        <Text style={s.lyricCurrent} numberOfLines={3}>{current?.text}</Text>
 
         {nextLine ? (
           <TouchableOpacity activeOpacity={0.7} onPress={() => seekTo(nextLine.time)}>
-            <Text style={s.lyricsLineFaded} numberOfLines={2}>{nextLine.text}</Text>
+            <Text style={s.lyricFaded} numberOfLines={2}>{nextLine.text}</Text>
           </TouchableOpacity>
-        ) : <View style={s.lyricsLineFadedSpacer} />}
+        ) : <View style={s.lyricSpacer} />}
       </View>
     );
   };
@@ -203,121 +172,94 @@ export default function NowPlayingScreen({ onClose }) {
     }
     if (stageMode === 'lyrics') {
       return (
-        <View style={s.lyricsStage}>
+        <View style={s.stageArea}>
           {loadingLyrics ? (
-            <View style={s.lyricsCentered}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={{ color: COLORS.textSecondary, marginTop: 12 }}>Loading lyrics…</Text>
-            </View>
+            <ActivityIndicator size="large" color={COLORS.primary} />
           ) : lyricsError ? (
-            <View style={s.lyricsCentered}>
-              <Ionicons name="document-text-outline" size={40} color={COLORS.textMuted} />
-              <Text style={s.lyricsErrorText}>{lyricsError}</Text>
+            <View style={s.centered}>
+              <Ionicons name="text-outline" size={34} color={COLORS.textMuted} />
+              <Text style={s.lyricsMessage}>{lyricsError}</Text>
             </View>
           ) : syncedLines.length > 0 ? (
-            renderSyncedLyrics()
+            renderLyrics()
           ) : plainLyrics ? (
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 20 }}>
-              <Text style={s.lyricsPlainText}>{plainLyrics}</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 16 }}>
+              <Text style={s.lyricPlain}>{plainLyrics}</Text>
             </ScrollView>
           ) : null}
         </View>
       );
     }
-    // 'art'
-    return trackArt(currentTrack) ? (
-      <Image source={{ uri: trackArt(currentTrack) }} style={s.stageSurface} />
+    return art ? (
+      <Image source={{ uri: art }} style={s.cover} />
     ) : (
-      <View style={[s.stageSurface, s.artPlaceholder]}>
-        <Ionicons name="musical-notes" size={80} color={COLORS.primary} />
+      <View style={[s.cover, s.coverPlaceholder]}>
+        <Ionicons name="musical-notes" size={64} color={COLORS.primary} />
       </View>
     );
   };
 
   return (
     <View style={s.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="light-content" />
 
-      {/* Background: full-bleed blurred album art */}
-      {trackArt(currentTrack) && (
-        <Image
-          source={{ uri: trackArt(currentTrack) }}
-          style={s.bgArt}
-          blurRadius={70}
-        />
-      )}
+      {/* The artwork is the background — no panels needed on top of it */}
+      {art && <Image source={{ uri: art }} style={s.backdrop} blurRadius={90} />}
       <LinearGradient
-        colors={['rgba(4,4,8,0.55)', 'rgba(4,4,8,0.8)', 'rgba(4,4,8,0.96)']}
+        colors={['rgba(3,24,29,0.55)', 'rgba(3,24,29,0.88)', COLORS.background]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFillObject}
       />
 
-      {/* Top bar */}
       <View style={s.topBar}>
-        <TouchableOpacity onPress={onClose} style={s.topBtn}>
-          <Ionicons name="chevron-down" size={26} color="rgba(255,255,255,0.7)" />
+        <TouchableOpacity onPress={onClose} style={s.iconBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="chevron-down" size={26} color={COLORS.textSecondary} />
         </TouchableOpacity>
         <Text style={s.topLabel}>Now Playing</Text>
-        <TouchableOpacity onPress={() => setShowAudioSettings(true)} style={s.topBtn}>
-          <Ionicons name="options-outline" size={21} color="rgba(255,255,255,0.7)" />
+        <TouchableOpacity onPress={() => setShowSheet(true)} style={s.iconBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="ellipsis-horizontal" size={22} color={COLORS.textSecondary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        contentContainerStyle={s.scrollBody}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
-        {/* Stage: cover / visualizer / lyrics */}
+      <View style={s.body}>
         <View style={s.stageWrap}>
-          <Animated.View key={stageMode} entering={FadeIn.duration(220)} exiting={FadeOut.duration(120)} style={s.stageAnim}>
+          <Animated.View key={stageMode} entering={FadeIn.duration(220)} exiting={FadeOut.duration(120)} style={s.stageFill}>
             {renderStage()}
           </Animated.View>
         </View>
 
-        {/* Stage switcher */}
         <View style={s.switcher}>
           {STAGES.map((st) => {
             const active = stageMode === st.key;
             return (
-              <TouchableOpacity
-                key={st.key}
-                onPress={() => selectStage(st.key)}
-                style={s.switchItem}
-                activeOpacity={0.7}
-              >
-                <Text style={[s.switchLabel, active && { color: COLORS.textPrimary }]}>
-                  {st.label.toUpperCase()}
-                </Text>
-                <View style={[s.switchUnderline, active && { backgroundColor: COLORS.primary }]} />
+              <TouchableOpacity key={st.key} onPress={() => selectStage(st.key)} activeOpacity={0.7} style={s.switchItem}>
+                <Text style={[s.switchLabel, active && s.switchLabelActive]}>{st.label.toUpperCase()}</Text>
+                <View style={[s.switchDot, active && { backgroundColor: COLORS.primary }]} />
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Track Info */}
-        <View style={s.infoRow}>
-          <View style={{ flex: 1, marginRight: 12 }}>
+        <View style={s.meta}>
+          <View style={{ flex: 1, marginRight: 14 }}>
             <Text style={s.title} numberOfLines={2}>{currentTrack.title}</Text>
             <Text style={s.artist} numberOfLines={1}>{currentTrack.artist}</Text>
           </View>
-          <TouchableOpacity onPress={handleLike} style={s.likeBtn}>
-            <Ionicons
-              name={liked ? 'heart' : 'heart-outline'}
-              size={26}
-              color={liked ? '#EF4444' : 'rgba(255,255,255,0.5)'}
-            />
+          <TouchableOpacity onPress={handleLike} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name={liked ? 'heart' : 'heart-outline'} size={25} color={liked ? COLORS.liked : COLORS.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Seek bar */}
-        <View style={s.seekSection}>
+        <View style={s.seekWrap}>
           <Slider
             style={s.slider}
-            minimumValue={0} maximumValue={duration || 1}
-            value={position} onSlidingComplete={seekTo}
+            minimumValue={0}
+            maximumValue={duration || 1}
+            value={position}
+            onSlidingComplete={seekTo}
             minimumTrackTintColor={COLORS.primary}
-            maximumTrackTintColor="rgba(255,255,255,0.15)"
-            thumbTintColor="#FFF"
+            maximumTrackTintColor={COLORS.seekBarTrack}
+            thumbTintColor={COLORS.primary}
           />
           <View style={s.timeRow}>
             <Text style={s.time}>{fmt(position)}</Text>
@@ -325,292 +267,164 @@ export default function NowPlayingScreen({ onClose }) {
           </View>
         </View>
 
-        {/* Controls */}
-        <View style={s.controlRow}>
-          <TouchableOpacity onPress={toggleShuffle} style={s.sideBtn}>
-            <Ionicons name="shuffle" size={24} color={shuffleOn ? COLORS.primary : 'rgba(255,255,255,0.4)'} />
+        <View style={s.controls}>
+          <TouchableOpacity onPress={toggleShuffle} style={s.sideBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="shuffle" size={22} color={shuffleOn ? COLORS.primary : COLORS.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={playPrevious} style={s.skipBtn}>
-            <Ionicons name="play-skip-back" size={30} color="#FFF" />
+
+          <TouchableOpacity onPress={playPrevious} style={s.skipBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="play-skip-back" size={28} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={togglePlay} style={s.playBtn}>
-            <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.playGrad}>
-              {isLoading ? (
-                <ActivityIndicator size="large" color="#FFF" />
-              ) : (
-                <Ionicons name={isPlaying ? "pause" : "play"} size={32} color="#FFF"
-                  style={{ marginLeft: isPlaying ? 0 : 3 }} />
-              )}
-            </LinearGradient>
+
+          <TouchableOpacity onPress={togglePlay} style={s.playBtn} activeOpacity={0.85}>
+            {isLoading ? (
+              <ActivityIndicator size="small" color={COLORS.background} />
+            ) : (
+              <Ionicons
+                name={isPlaying ? 'pause' : 'play'}
+                size={30}
+                color={COLORS.background}
+                style={{ marginLeft: isPlaying ? 0 : 3 }}
+              />
+            )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={playNext} style={s.skipBtn}>
-            <Ionicons name="play-skip-forward" size={30} color="#FFF" />
+
+          <TouchableOpacity onPress={playNext} style={s.skipBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="play-skip-forward" size={28} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={cycleRepeat} style={s.sideBtn}>
-            <Ionicons name={getRepeatIcon()} size={24}
-              color={repeatMode !== 'off' ? COLORS.primary : 'rgba(255,255,255,0.4)'} />
+
+          <TouchableOpacity onPress={cycleRepeat} style={s.sideBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="repeat" size={22} color={repeatMode !== 'off' ? COLORS.primary : COLORS.textSecondary} />
+            {repeatMode === 'one' && <View style={s.repeatOneDot} />}
           </TouchableOpacity>
         </View>
 
-        {/* Volume */}
         <View style={s.volumeRow}>
-          <Ionicons name="volume-low" size={16} color="rgba(255,255,255,0.3)" />
+          <Ionicons name="volume-low" size={15} color={COLORS.textMuted} />
           <Slider
-            style={{ flex: 1, marginHorizontal: 8 }}
+            style={s.volumeSlider}
             minimumValue={0} maximumValue={1} step={0.01}
             value={volume} onValueChange={changeVolume}
-            minimumTrackTintColor="rgba(255,255,255,0.5)"
-            maximumTrackTintColor="rgba(255,255,255,0.1)"
-            thumbTintColor="rgba(255,255,255,0.8)"
+            minimumTrackTintColor={COLORS.textSecondary}
+            maximumTrackTintColor={COLORS.seekBarTrack}
+            thumbTintColor={COLORS.textSecondary}
           />
-          <Ionicons name="volume-high" size={16} color="rgba(255,255,255,0.3)" />
+          <Ionicons name="volume-high" size={15} color={COLORS.textMuted} />
         </View>
 
-        {/* Bottom actions */}
         <View style={s.bottomRow}>
-          <TouchableOpacity onPress={handleOpenPlaylistModal} style={s.bottomBtn}>
-            <Ionicons name="add-circle-outline" size={22} color="rgba(255,255,255,0.5)" />
-            <Text style={s.bottomBtnText}>Playlist</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => addToQueue(currentTrack)} style={s.bottomBtn}>
-            <Ionicons name="list-outline" size={22} color="rgba(255,255,255,0.5)" />
-            <Text style={s.bottomBtnText}>Queue</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowAmbient(true)} style={s.bottomBtn}>
-            <Ionicons name="sparkles-outline" size={22} color="rgba(255,255,255,0.5)" />
-            <Text style={s.bottomBtnText}>Ambient</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowAudioSettings(true)} style={s.bottomBtn}>
-            <Ionicons name="options-outline" size={22} color="rgba(255,255,255,0.5)" />
-            <Text style={s.bottomBtnText}>Audio</Text>
-          </TouchableOpacity>
+          <BottomAction icon="sparkles-outline" label="Ambient" onPress={() => setShowAmbient(true)} s={s} COLORS={COLORS} />
+          <BottomAction icon="options-outline" label="Audio" onPress={() => setShowAudioSettings(true)} s={s} COLORS={COLORS} />
+          <BottomAction icon="add-circle-outline" label="Add to" onPress={() => setShowSheet(true)} s={s} COLORS={COLORS} />
         </View>
-      </ScrollView>
+      </View>
 
-      {/* Ambient Pulse Modal */}
-      <Modal visible={showAmbient} animationType="fade" transparent={false}
-        onRequestClose={() => setShowAmbient(false)}>
-        <AmbientPulse onClose={() => setShowAmbient(false)} />
-      </Modal>
-      {/* Audio Settings Modal */}
-      <Modal visible={showAudioSettings} animationType="slide" transparent={false}
-        onRequestClose={() => setShowAudioSettings(false)}>
-        <AudioSettingsScreen onClose={() => setShowAudioSettings(false)} />
-      </Modal>
-      {/* Playlist Selection Modal */}
-      <Modal visible={showPlaylist} transparent animationType="slide"
-        onRequestClose={() => setShowPlaylist(false)}>
-        <TouchableOpacity style={s.plOverlay} activeOpacity={1} onPress={() => setShowPlaylist(false)}>
-          <View style={s.plSheet}>
-            <View style={s.plHandle} />
-            <Text style={s.plSheetTitle}>Add to Playlist</Text>
+      {showAmbient && (
+        <View style={s.fullOverlay}>
+          <AmbientPulse onClose={() => setShowAmbient(false)} />
+        </View>
+      )}
+      {showAudioSettings && (
+        <View style={s.fullOverlay}>
+          <AudioSettingsScreen onClose={() => setShowAudioSettings(false)} />
+        </View>
+      )}
 
-            <ScrollView style={{ maxHeight: H * 0.4 }}>
-              {playlists.map(pl => (
-                <TouchableOpacity key={pl.id} style={s.plItem} onPress={() => handleAddToPlaylist(pl.id)}>
-                  <View style={s.plItemIcon}>
-                    <Ionicons name="musical-notes" size={18} color={COLORS.primary} />
-                  </View>
-                  <Text style={s.plItemText}>{pl.name}</Text>
-                  <Ionicons name="add" size={20} color={COLORS.textMuted} />
-                </TouchableOpacity>
-              ))}
-              {showNewPlaylist ? (
-                <View style={s.plNewWrap}>
-                  <TextInput
-                    style={s.plNewInput}
-                    value={newPlaylistName}
-                    onChangeText={setNewPlaylistName}
-                    placeholder="Playlist name…"
-                    placeholderTextColor={COLORS.textMuted}
-                    autoFocus
-                  />
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                    <TouchableOpacity
-                      style={[s.plNewBtn, { backgroundColor: COLORS.surfaceElevated }]}
-                      onPress={() => setShowNewPlaylist(false)}>
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[s.plNewBtn, { backgroundColor: COLORS.primary }]}
-                      onPress={handleCreateAndAdd}>
-                      <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700' }}>Create</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <TouchableOpacity style={s.plItem} onPress={() => setShowNewPlaylist(true)}>
-                  <View style={[s.plItemIcon, { backgroundColor: COLORS.primary + '20' }]}>
-                    <Ionicons name="add" size={18} color={COLORS.primary} />
-                  </View>
-                  <Text style={[s.plItemText, { color: COLORS.primary }]}>New Playlist</Text>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      <TrackActionSheet track={currentTrack} visible={showSheet} onClose={() => setShowSheet(false)} />
     </View>
   );
 }
-const createStyles = (COLORS, SHADOWS, W, H, STAGE_SIZE) => StyleSheet.create({
+
+function BottomAction({ icon, label, onPress, s, COLORS }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={s.bottomBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+      <Ionicons name={icon} size={20} color={COLORS.textSecondary} />
+      <Text style={s.bottomLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const createStyles = (COLORS, W, H, STAGE) => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  centered: { justifyContent: 'center', alignItems: 'center' },
+  emptyText: { color: COLORS.textSecondary, fontSize: 15, marginTop: 14 },
+  emptyBtn: { marginTop: 20, paddingHorizontal: 22, paddingVertical: 10 },
+  emptyBtnText: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
 
-  // Background
-  bgArt: {
-    ...StyleSheet.absoluteFillObject,
-    width: W, height: H,
-    opacity: 0.4,
-  },
-  // Top bar
+  backdrop: { ...StyleSheet.absoluteFillObject, width: W, height: H, opacity: 0.35 },
+
   topBar: {
-    position: 'absolute', top: Platform.OS === 'ios' ? 58 : 40,
-    left: 20, right: 20, flexDirection: 'row',
-    justifyContent: 'space-between', alignItems: 'center',
-    zIndex: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 18, paddingTop: Platform.OS === 'ios' ? 56 : 42, paddingBottom: 6,
   },
-  topBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  topLabel: { color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2.5 },
-
-  scrollBody: {
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 118 : 96,
-    paddingBottom: 48,
+  iconBtn: { width: 42, height: 42, justifyContent: 'center', alignItems: 'center' },
+  topLabel: {
+    color: COLORS.textMuted, fontSize: 10, fontWeight: '700',
+    letterSpacing: 2.4, textTransform: 'uppercase',
   },
 
-  // Stage (cover / visualizer / lyrics share one footprint)
-  stageWrap: {
-    width: STAGE_SIZE, height: STAGE_SIZE,
-    borderRadius: 24, overflow: 'hidden',
-    ...SHADOWS.card,
-    marginBottom: 20,
-  },
-  stageAnim: { width: '100%', height: '100%' },
-  stageSurface: { width: '100%', height: '100%', borderRadius: 24 },
-  artPlaceholder: {
-    backgroundColor: COLORS.surfaceElevated,
-    justifyContent: 'center', alignItems: 'center',
-  },
+  body: { flex: 1, justifyContent: 'center', paddingBottom: 16 },
 
-  // Stage switcher — thin editorial tab row
-  switcher: {
-    flexDirection: 'row', gap: 28, marginBottom: 30,
+  stageWrap: { height: STAGE, marginHorizontal: 24, justifyContent: 'center' },
+  stageFill: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  cover: { width: STAGE, height: STAGE, borderRadius: 14, alignSelf: 'center' },
+  coverPlaceholder: {
+    backgroundColor: COLORS.surfaceLight, justifyContent: 'center', alignItems: 'center',
   },
-  switchItem: { alignItems: 'center' },
-  switchLabel: {
-    color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '700',
-    letterSpacing: 1.5, marginBottom: 6,
-  },
-  switchUnderline: {
-    width: 18, height: 2, borderRadius: 1, backgroundColor: 'transparent',
-  },
+  stageArea: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
 
-  // Info — big, left-aligned, editorial
-  infoRow: {
-    flexDirection: 'row', alignItems: 'flex-end',
-    paddingHorizontal: 30, marginBottom: 22, width: '100%',
+  switcher: { flexDirection: 'row', justifyContent: 'center', gap: 30, marginTop: 22 },
+  switchItem: { alignItems: 'center', paddingVertical: 6 },
+  switchLabel: { color: COLORS.textMuted, fontSize: 10.5, fontWeight: '700', letterSpacing: 1.6 },
+  switchLabelActive: { color: COLORS.textPrimary },
+  switchDot: { width: 3, height: 3, borderRadius: 1.5, marginTop: 6, backgroundColor: 'transparent' },
+
+  meta: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 28, marginTop: 26 },
+  title: { color: COLORS.textPrimary, fontSize: 24, fontWeight: '800', letterSpacing: -0.5, lineHeight: 29 },
+  artist: { color: COLORS.textSecondary, fontSize: 14, marginTop: 6 },
+
+  seekWrap: { paddingHorizontal: 24, marginTop: 20 },
+  slider: { width: '100%', height: 30 },
+  timeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -6, paddingHorizontal: 4 },
+  time: { color: COLORS.textMuted, fontSize: 11, fontVariant: ['tabular-nums'] },
+
+  controls: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 18, marginTop: 14,
   },
-  title: { color: '#FFF', fontSize: 27, fontWeight: '800', letterSpacing: -0.6, lineHeight: 32 },
-  artist: { color: 'rgba(255,255,255,0.5)', fontSize: 15, marginTop: 6, letterSpacing: 0.2 },
-  likeBtn: { padding: 10 },
-
-  // Seek
-  seekSection: { width: W - 64, marginBottom: 4 },
-  slider: { width: '100%', height: 28 },
-  timeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 },
-  time: { color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: '500' },
-
-  // Controls
-  controlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 8, marginBottom: 18 },
   sideBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  skipBtn: { width: 52, height: 52, justifyContent: 'center', alignItems: 'center' },
-  playBtn: { borderRadius: 36, ...SHADOWS.button },
-  playGrad: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center' },
-
-  // Volume
-  volumeRow: { flexDirection: 'row', alignItems: 'center', width: W - 88, marginBottom: 30 },
-
-  // Bottom actions (inline now, screen scrolls)
-  bottomRow: {
-    flexDirection: 'row', justifyContent: 'center', gap: 30,
+  skipBtn: { width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
+  playBtn: {
+    width: 68, height: 68, borderRadius: 34, backgroundColor: COLORS.primary,
+    justifyContent: 'center', alignItems: 'center',
   },
+  repeatOneDot: {
+    position: 'absolute', bottom: 8, width: 3, height: 3, borderRadius: 1.5,
+    backgroundColor: COLORS.primary,
+  },
+
+  volumeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 28, marginTop: 16,
+  },
+  volumeSlider: { flex: 1, height: 28 },
+
+  bottomRow: { flexDirection: 'row', justifyContent: 'center', gap: 44, marginTop: 22 },
   bottomBtn: { alignItems: 'center', gap: 5 },
-  bottomBtnText: { color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: '600', letterSpacing: 0.4 },
+  bottomLabel: { color: COLORS.textMuted, fontSize: 10, fontWeight: '600', letterSpacing: 0.4 },
 
-  // Lyrics — no card, sits directly over the blurred backdrop
-  lyricsStage: {
-    width: '100%', height: '100%',
-    justifyContent: 'center', alignItems: 'center',
+  lyricsWrap: { width: '100%', alignItems: 'center', justifyContent: 'center', gap: 20, paddingHorizontal: 10 },
+  lyricFaded: { color: COLORS.textMuted, fontSize: 15, lineHeight: 21, textAlign: 'center', fontWeight: '600' },
+  lyricSpacer: { height: 42 },
+  lyricCurrent: {
+    color: COLORS.textPrimary, fontSize: 24, lineHeight: 31,
+    textAlign: 'center', fontWeight: '800', letterSpacing: -0.3,
   },
-  lyricsCentered: {
-    flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24,
+  lyricPlain: { color: COLORS.textSecondary, fontSize: 15, lineHeight: 26, textAlign: 'center' },
+  lyricsMessage: { color: COLORS.textSecondary, fontSize: 14, marginTop: 12, textAlign: 'center' },
+
+  fullOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: COLORS.background, zIndex: 50, elevation: 50,
   },
-  lyricsErrorText: {
-    color: COLORS.textSecondary, fontSize: 15, marginTop: 12, textAlign: 'center',
-  },
-  lyricsCenterWrap: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    gap: 22,
-  },
-  lyricsLineFaded: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 16,
-    lineHeight: 22,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  lyricsLineFadedSpacer: {
-    height: 44,
-  },
-  lyricsLineCurrent: {
-    color: '#FFF',
-    fontSize: 25,
-    lineHeight: 32,
-    textAlign: 'center',
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  lyricsPlainText: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: 16,
-    lineHeight: 28,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  // Playlist modal
-  plOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  plSheet: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 28,
-  },
-  plHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: COLORS.textMuted, alignSelf: 'center', marginBottom: 20,
-  },
-  plSheetTitle: { color: '#FFF', fontSize: 18, fontWeight: '700', marginBottom: 20 },
-  plItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  plItemIcon: {
-    width: 38, height: 38, borderRadius: 10,
-    backgroundColor: COLORS.surfaceElevated,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  plItemText: { flex: 1, color: '#FFF', fontSize: 15, fontWeight: '500' },
-  plNewWrap: {
-    backgroundColor: COLORS.surfaceLight,
-    padding: 16, borderRadius: 14, marginTop: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
-  },
-  plNewInput: {
-    backgroundColor: COLORS.surfaceElevated, color: '#FFF',
-    borderRadius: 10, paddingHorizontal: 14, height: 42, fontSize: 14,
-  },
-  plNewBtn: { flex: 1, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
 });

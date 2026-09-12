@@ -1,10 +1,12 @@
-import { useTheme } from '../context/ThemeContext';
 // src/components/TrackItem.js
-// Reusable track row component used in search results, playlists, and queue
-// Wrapped in React.memo with custom comparator for optimal re-render performance
+// Shared track row. Takes an `onMore` handler and renders a single overflow
+// button for it — callers used to inject their own icon buttons here, which
+// gave tiny targets nested inside a pressable row, so taps fell through to
+// playback. One button, one owner, 44pt target.
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 import { SPACING, FONT_SIZE, BORDER_RADIUS } from '../theme';
 import { trackArt } from '../utils/trackArt';
 
@@ -19,6 +21,7 @@ function TrackItem({
   track,
   onPress,
   onLongPress,
+  onMore,
   isPlaying = false,
   showIndex,
   index,
@@ -27,73 +30,68 @@ function TrackItem({
   drag,
   isActive = false,
 }) {
-  const { COLORS, SHADOWS } = useTheme();
-  const s = useMemo(() => createStyles(COLORS, SHADOWS), [COLORS, SHADOWS]);
+  const { COLORS } = useTheme();
+  const s = useMemo(() => createStyles(COLORS), [COLORS]);
+  const art = trackArt(track, { small: true });
 
   return (
     <TouchableOpacity
-      activeOpacity={0.7}
+      activeOpacity={0.6}
       onPress={() => onPress?.(track)}
-      onLongPress={() => onLongPress?.(track)}
-      style={[
-        s.container,
-        isPlaying && s.containerActive,
-        compact && s.containerCompact,
-        isActive && s.containerDragging,
-      ]}
+      onLongPress={() => (onMore || onLongPress)?.(track)}
+      delayLongPress={280}
+      style={[s.container, compact && s.containerCompact, isActive && s.containerDragging]}
     >
-      {/* Index or Art */}
+      {/* A hairline marks the playing row instead of a filled block */}
+      {isPlaying && <View style={s.activeBar} />}
+
       {showIndex ? (
         <View style={s.indexContainer}>
           {isPlaying ? (
-            <Ionicons name="stats-chart" size={16} color={COLORS.primary} />
+            <Ionicons name="volume-medium" size={15} color={COLORS.primary} />
           ) : (
             <Text style={s.index}>{index + 1}</Text>
           )}
         </View>
       ) : (
         <View style={s.artContainer}>
-          {trackArt(track, { small: true }) ? (
-            <Image
-              source={{ uri: trackArt(track, { small: true }) }}
-              style={[s.art, compact && s.artSmall]}
-            />
+          {art ? (
+            <Image source={{ uri: art }} style={[s.art, compact && s.artSmall]} />
           ) : (
             <View style={[s.art, s.artPlaceholder, compact && s.artSmall]}>
-              <Ionicons name="musical-notes" size={24} color={COLORS.textMuted} />
-            </View>
-          )}
-          {isPlaying && (
-            <View style={s.playingOverlay}>
-              <Ionicons name="stats-chart" size={20} color="#FFF" />
+              <Ionicons name="musical-notes" size={20} color={COLORS.textMuted} />
             </View>
           )}
         </View>
       )}
 
-      {/* Track Info */}
       <View style={s.info}>
-        <Text
-          style={[s.title, isPlaying && s.titleActive]}
-          numberOfLines={1}
-        >
+        <Text style={[s.title, isPlaying && s.titleActive]} numberOfLines={1}>
           {track.title}
         </Text>
-        <Text style={s.subtitle} numberOfLines={1}>
-          {track.artist}
-          {track.album ? ` · ${track.album}` : ''}
-        </Text>
+        <Text style={s.subtitle} numberOfLines={1}>{track.artist}</Text>
       </View>
 
-      {/* Duration / Right Action / Drag */}
       <View style={s.rightSection}>
         {track.duration_ms && !drag ? (
           <Text style={s.duration}>{formatDuration(track.duration_ms)}</Text>
         ) : null}
+
         {rightAction}
+
+        {onMore && !drag && (
+          <TouchableOpacity
+            onPress={() => onMore(track)}
+            style={s.moreBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={19} color={COLORS.textSecondary} />
+          </TouchableOpacity>
+        )}
+
         {drag && (
           <TouchableOpacity onLongPress={drag} delayLongPress={100} style={s.dragHandle}>
-            <Ionicons name="reorder-three" size={24} color={COLORS.textMuted} />
+            <Ionicons name="reorder-three" size={22} color={COLORS.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -101,7 +99,6 @@ function TrackItem({
   );
 }
 
-// Custom comparator — only re-render when these specific props change
 function areEqual(prev, next) {
   return (
     prev.track?.id === next.track?.id &&
@@ -115,107 +112,37 @@ function areEqual(prev, next) {
 
 export default React.memo(TrackItem, areEqual);
 
-const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: 11,
+    paddingHorizontal: SPACING.xl,
   },
-  containerActive: {
-    backgroundColor: COLORS.cardGlow,
-  },
+  containerCompact: { paddingVertical: SPACING.sm },
   containerDragging: {
-    backgroundColor: COLORS.surfaceElevated,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    transform: [{ scale: 1.02 }],
+    backgroundColor: COLORS.surfaceLight,
+    transform: [{ scale: 1.01 }],
   },
-  containerCompact: {
-    paddingVertical: SPACING.sm,
+  activeBar: {
+    position: 'absolute', left: 0, top: 8, bottom: 8,
+    width: 2, borderRadius: 1, backgroundColor: COLORS.primary,
   },
-  indexContainer: {
-    width: 32,
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  index: {
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZE.md,
-    fontWeight: '500',
-  },
-  indexActive: {
-    color: COLORS.primary,
-    fontSize: FONT_SIZE.lg,
-  },
-  artContainer: {
-    position: 'relative',
-    marginRight: SPACING.md,
-  },
-  art: {
-    width: 50,
-    height: 50,
-    borderRadius: BORDER_RADIUS.sm,
-  },
-  artSmall: {
-    width: 40,
-    height: 40,
-  },
+  indexContainer: { width: 26, alignItems: 'center', marginRight: SPACING.md },
+  index: { color: COLORS.textMuted, fontSize: FONT_SIZE.md, fontWeight: '500' },
+  artContainer: { marginRight: SPACING.md },
+  art: { width: 48, height: 48, borderRadius: BORDER_RADIUS.sm },
+  artSmall: { width: 40, height: 40 },
   artPlaceholder: {
-    backgroundColor: COLORS.surfaceElevated,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center', alignItems: 'center',
   },
-  artPlaceholderText: {
-    color: COLORS.textMuted,
-    fontSize: 18,
-  },
-  playingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(139, 92, 246, 0.6)',
-    borderRadius: BORDER_RADIUS.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playingIcon: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  info: {
-    flex: 1,
-    marginRight: SPACING.sm,
-  },
-  title: {
-    color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.md,
-    fontWeight: '600',
-  },
-  titleActive: {
-    color: COLORS.primary,
-  },
-  subtitle: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.sm,
-    marginTop: 2,
-  },
-  rightSection: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  duration: {
-    color: COLORS.textMuted,
-    fontSize: FONT_SIZE.sm,
-  },
-  dragHandle: {
-    paddingLeft: 10,
-    paddingRight: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  info: { flex: 1, marginRight: SPACING.sm },
+  title: { color: COLORS.textPrimary, fontSize: FONT_SIZE.md, fontWeight: '600' },
+  titleActive: { color: COLORS.primary },
+  subtitle: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, marginTop: 2 },
+  rightSection: { alignItems: 'center', flexDirection: 'row', gap: SPACING.sm },
+  duration: { color: COLORS.textMuted, fontSize: FONT_SIZE.sm, fontVariant: ['tabular-nums'] },
+  moreBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  dragHandle: { paddingLeft: 8, justifyContent: 'center', alignItems: 'center' },
 });
