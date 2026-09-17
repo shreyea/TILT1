@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { PlayerProvider } from './src/context/PlayerContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import * as Storage from './src/services/StorageService';
+import useBackHandler from './src/hooks/useBackHandler';
 
 const Tab = createBottomTabNavigator();
 
@@ -132,6 +133,7 @@ const tabStyles = StyleSheet.create({
 function Tabs() {
   return (
     <Tab.Navigator
+      backBehavior="history"
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <TabBar {...props} />}
     >
@@ -150,6 +152,8 @@ function AppContent() {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 0);
   const tabBarHeight = 56 + bottomPad;
+
+  useBackHandler(showNowPlaying, () => setShowNowPlaying(false));
 
   // Load intro shown state from persistent storage
   useEffect(() => {
@@ -188,7 +192,10 @@ function AppContent() {
         <Animated.View
           style={styles.nowPlayingOverlay}
           entering={SlideInDown.duration(260)}
-          exiting={SlideOutDown.duration(200)}
+          // On web the element is only removed after the exit animation's CSS
+          // `animationend`, which doesn't reliably fire — the player then
+          // stays on screen after tapping close. Exit instantly there.
+          exiting={Platform.OS === 'web' ? undefined : SlideOutDown.duration(200)}
         >
           <NowPlayingScreen onClose={() => setShowNowPlaying(false)} />
         </Animated.View>

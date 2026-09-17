@@ -1,7 +1,8 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
-import { getAudioStreamUrl, getAudioStreamById } from './services/AudioStreamService';
+import { getAudioStreamUrl } from './services/AudioStreamService';
 import { getDirectAudioUrls } from './services/PipedStreamService';
+import { resolveYouTubeStream } from './services/YouTubeStreamService';
 
 function getDevHost() {
   try {
@@ -32,41 +33,26 @@ const api = axios.create({
 });
 
 // ─── Request Deduplication ────────────────────────────────
-const pendingRequests = new Map();
+// Identical GETs already in flight share one request. (Cancelling the second
+// caller instead made it resolve empty — e.g. autoplay asking for
+// recommendations at the same moment as the Home screen got nothing back.)
+const inflight = new Map();
+const rawGet = api.get.bind(api);
 
-api.interceptors.request.use((config) => {
-  // Only deduplicate GET requests
-  if (config.method === 'get') {
-    const requestKey = `${config.method}:${config.url}?${new URLSearchParams(config.params).toString()}`;
-    if (pendingRequests.has(requestKey)) {
-      // If we already have this exact request in flight, abort this new one
-      const source = axios.CancelToken.source();
-      config.cancelToken = source.token;
-      source.cancel(`Request canceled: Duplicate request to ${requestKey}`);
-    } else {
-      pendingRequests.set(requestKey, true);
-      config.requestKey = requestKey; // Attach key for removal on response
-    }
-  }
-  return config;
-});
+api.get = (url, config = {}) => {
+  // Abortable calls (live search) must stay independent.
+  if (config.signal) return rawGet(url, config);
+  const key = `${url}?${new URLSearchParams(config.params || {}).toString()}`;
+  if (inflight.has(key)) return inflight.get(key);
+  const request = rawGet(url, config).finally(() => inflight.delete(key));
+  inflight.set(key, request);
+  return request;
+};
 
 api.interceptors.response.use(
-  (response) => {
-    if (response.config.requestKey) {
-      pendingRequests.delete(response.config.requestKey);
-    }
-    return response;
-  },
+  (response) => response,
   (error) => {
-    if (error.config?.requestKey) {
-      pendingRequests.delete(error.config.requestKey);
-    }
-    
-    // Format error message nicely
-    if (axios.isCancel(error)) {
-      console.log('Request canceled:', error.message);
-    } else {
+    if (!axios.isCancel(error) && error.name !== 'CanceledError') {
       console.error(`API Error [${error.config?.url}]:`, error.response?.data || error.message);
     }
     return Promise.reject(error);
@@ -90,31 +76,66 @@ export const searchSongs = async (query, abortSignal) => {
   }
 };
 
-// ─── Audio Streaming (Piped/Cobalt — no backend needed) ────
+// ─── Audio Streaming ──────────────────────────────────────
+// Sources are tried in order and we stop at the first that yields something,
+// so a dead mirror costs nothing when an earlier source already worked:
+//   1. YouTube's player API, resolved on the phone itself (native only)
+//   2. Our backend's yt-dlp resolver + proxy (works when the backend runs on a
+//      normal IP — e.g. locally for the web build; Render is bot-blocked)
+//   3. Public Piped mirrors (community-run, frequently down)
+
+const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+
+async function resolveVideoId(title, artist, id) {
+  if (id && YOUTUBE_ID.test(id)) return id;
+
+  // Backend search (ytmusicapi) is the dependable way to map a title to a video.
+  try {
+    const res = await api.get('/search', { params: { q: `${title} ${artist}` }, timeout: 20000 });
+    const hit = (res.data.results || []).find(t => YOUTUBE_ID.test(t.id || ''));
+    if (hit) return hit.id;
+  } catch (e) {
+    console.warn('[api] backend search for videoId failed:', e.message);
+  }
+
+  const piped = await getAudioStreamUrl(title, artist);
+  return piped.videoId;
+}
+
+async function resolveViaBackend(title, artist, videoId) {
+  const res = await api.get('/stream', {
+    params: { title, artist, id: videoId },
+    timeout: 25000,
+  });
+  return res.data?.url ? { url: res.data.url, source: 'backend' } : null;
+}
 
 export const getStreamUrl = async (title, artist, id) => {
+  const videoId = await resolveVideoId(title, artist, id);
+  const audioUrls = [];
+
   try {
-    let streamData;
-
-    // If we have a YouTube video ID (11 chars, not a Spotify ID), stream it directly
-    if (id && id.length === 11 && !id.startsWith('spotify')) {
-      console.log(`[api] Streaming by videoId: ${id}`);
-      streamData = await getAudioStreamById(id);
-    } else {
-      // Otherwise search by title + artist across Piped → Invidious instances
-      console.log(`[api] Streaming by search: "${title}" by ${artist}`);
-      streamData = await getAudioStreamUrl(title, artist);
-    }
-
-    // Resolve direct, ad-free audio URLs for this videoId (ranked best-first).
-    // We never load YouTube's player, so its ad system never triggers.
-    const audioUrls = await getDirectAudioUrls(streamData.videoId);
-
-    return { ...streamData, audioUrls };
-  } catch (error) {
-    console.error('Stream URL failed:', error.message);
-    throw error;
+    const yt = await resolveYouTubeStream(videoId);
+    if (yt) audioUrls.push(yt);
+  } catch (e) {
+    console.warn('[api] on-device YouTube resolve failed:', e.message);
   }
+
+  if (audioUrls.length === 0) {
+    try {
+      const backend = await resolveViaBackend(title, artist, videoId);
+      if (backend) audioUrls.push(backend);
+    } catch (e) {
+      console.warn('[api] backend stream resolve failed:', e.message);
+    }
+  }
+
+  if (audioUrls.length === 0) {
+    audioUrls.push(...(await getDirectAudioUrls(videoId)));
+  }
+
+  console.log(`[api] ${videoId}: ${audioUrls.map(c => c.source || 'piped').join(', ') || 'no sources'}`);
+  return { videoId, url: videoId, audioUrls };
 };
 
 // ─── Recommendations ───────────────────────────────────────

@@ -14,6 +14,7 @@ const KEYS = {
   QUEUE: '@tilt_queue',
   LIKED_SONGS: '@tilt_liked_songs',
   PLAYLISTS: '@tilt_playlists',
+  SEARCH_HISTORY: '@tilt_search_history',
   // Playlist tracks are keyed per-playlist: @tilt_pl_tracks_{id}
 };
 
@@ -119,6 +120,36 @@ export async function getLikedSongs() {
 
 export async function saveLikedSongs(songs) {
   return setJSON(KEYS.LIKED_SONGS, songs || []);
+}
+
+// ─── Search History ──────────────────────────────────────────
+// Most recent first, de-duplicated case-insensitively, capped at 10.
+
+const SEARCH_HISTORY_LIMIT = 10;
+
+export async function getSearchHistory() {
+  return getJSON(KEYS.SEARCH_HISTORY, []);
+}
+
+export async function addSearchHistory(term) {
+  const clean = (term || '').trim();
+  if (clean.length < 2) return getSearchHistory();
+  const current = await getSearchHistory();
+  const next = [clean, ...current.filter(t => t.toLowerCase() !== clean.toLowerCase())]
+    .slice(0, SEARCH_HISTORY_LIMIT);
+  await setJSON(KEYS.SEARCH_HISTORY, next);
+  return next;
+}
+
+export async function removeSearchHistory(term) {
+  const next = (await getSearchHistory()).filter(t => t !== term);
+  await setJSON(KEYS.SEARCH_HISTORY, next);
+  return next;
+}
+
+export async function clearSearchHistory() {
+  await setJSON(KEYS.SEARCH_HISTORY, []);
+  return [];
 }
 
 // ─── Playlists ───────────────────────────────────────────────

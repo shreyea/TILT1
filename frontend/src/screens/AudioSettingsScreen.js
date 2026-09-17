@@ -34,8 +34,8 @@ export default function AudioSettingsScreen({ onClose }) {
 
 
   const {
-    crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled, tiltGestureMap,
-    updateCrossfade, updatePlaybackSpeed, toggleBassBoost, toggleFadeIn, toggleTiltGestures, updateTiltGesture,
+    crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled, tiltGestureMap, autoplayEnabled,
+    updateCrossfade, updatePlaybackSpeed, toggleBassBoost, toggleFadeIn, toggleTiltGestures, updateTiltGesture, toggleAutoplay,
   } = usePlayer();
   const [spatialAudio, setSpatialAudio] = useState(false);
   const [eqEnabled, setEqEnabled] = useState(false);
@@ -71,6 +71,23 @@ export default function AudioSettingsScreen({ onClose }) {
         <View style={s.activeBar}>
           <Ionicons name="checkmark-circle" size={16} color={COLORS.secondary} />
           <Text style={s.activeText}>Changes apply in real-time</Text>
+        </View>
+        {/* Autoplay — keeps music going when the queue runs out */}
+        <View style={s.card}>
+          <View style={s.cardHeader}>
+            <View style={s.cardIconWrap}>
+              <Ionicons name="infinite-outline" size={22} color={COLORS.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.cardTitle}>Autoplay</Text>
+              <Text style={s.cardSub}>When the queue ends, keep playing similar songs</Text>
+            </View>
+            <Switch
+              value={autoplayEnabled} onValueChange={toggleAutoplay}
+              trackColor={{ false: COLORS.seekBarTrack, true: COLORS.primary + '60' }}
+              thumbColor={autoplayEnabled ? COLORS.primary : COLORS.textMuted}
+            />
+          </View>
         </View>
         {/* Crossfade — FUNCTIONAL */}
         <View style={s.card}>

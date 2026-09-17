@@ -20,6 +20,7 @@ import TrackActionSheet from '../components/TrackActionSheet';
 import * as Storage from '../services/StorageService';
 import { trackArt } from '../utils/trackArt';
 import { fetchLyrics as lookupLyrics } from '../services/LyricsService';
+import useBackHandler from '../hooks/useBackHandler';
 
 function fmt(ms) {
   if (!ms || ms < 0) return '0:00';
@@ -27,6 +28,10 @@ function fmt(ms) {
   const s = Math.floor((ms % 60000) / 1000);
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
+
+// Web only removes an exiting element after its CSS animation ends, which
+// doesn't reliably fire — stale stages then pile up over the controls.
+const STAGE_EXIT = Platform.OS === 'web' ? undefined : FadeOut.duration(120);
 
 const STAGES = [
   { key: 'art', label: 'Cover' },
@@ -42,8 +47,8 @@ export default function NowPlayingScreen({ onClose }) {
 
   const {
     currentTrack, isPlaying, isLoading, position, duration,
-    volume, repeatMode, shuffleOn,
-    togglePlay, seekTo, changeVolume, playNext, playPrevious,
+    repeatMode, shuffleOn,
+    togglePlay, seekTo, playNext, playPrevious,
     toggleShuffle, cycleRepeat,
   } = usePlayer();
 
@@ -51,6 +56,10 @@ export default function NowPlayingScreen({ onClose }) {
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [showAmbient, setShowAmbient] = useState(false);
   const [showSheet, setShowSheet] = useState(false);
+
+  // Nested overlays close before the player itself does.
+  useBackHandler(showAmbient, () => setShowAmbient(false));
+  useBackHandler(showAudioSettings, () => setShowAudioSettings(false));
   const [stageMode, setStageMode] = useState('art');
 
   const [syncedLines, setSyncedLines] = useState([]);
@@ -221,9 +230,14 @@ export default function NowPlayingScreen({ onClose }) {
         </TouchableOpacity>
       </View>
 
-      <View style={s.body}>
+      <ScrollView
+        style={s.bodyScroll}
+        contentContainerStyle={s.body}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         <View style={s.stageWrap}>
-          <Animated.View key={stageMode} entering={FadeIn.duration(220)} exiting={FadeOut.duration(120)} style={s.stageFill}>
+          <Animated.View key={stageMode} entering={FadeIn.duration(220)} exiting={STAGE_EXIT} style={s.stageFill}>
             {renderStage()}
           </Animated.View>
         </View>
@@ -299,25 +313,13 @@ export default function NowPlayingScreen({ onClose }) {
           </TouchableOpacity>
         </View>
 
-        <View style={s.volumeRow}>
-          <Ionicons name="volume-low" size={15} color={COLORS.textMuted} />
-          <Slider
-            style={s.volumeSlider}
-            minimumValue={0} maximumValue={1} step={0.01}
-            value={volume} onValueChange={changeVolume}
-            minimumTrackTintColor={COLORS.textSecondary}
-            maximumTrackTintColor={COLORS.seekBarTrack}
-            thumbTintColor={COLORS.textSecondary}
-          />
-          <Ionicons name="volume-high" size={15} color={COLORS.textMuted} />
-        </View>
 
         <View style={s.bottomRow}>
           <BottomAction icon="sparkles-outline" label="Ambient" onPress={() => setShowAmbient(true)} s={s} COLORS={COLORS} />
           <BottomAction icon="options-outline" label="Audio" onPress={() => setShowAudioSettings(true)} s={s} COLORS={COLORS} />
           <BottomAction icon="add-circle-outline" label="Add to" onPress={() => setShowSheet(true)} s={s} COLORS={COLORS} />
         </View>
-      </View>
+      </ScrollView>
 
       {showAmbient && (
         <View style={s.fullOverlay}>
@@ -354,6 +356,7 @@ const createStyles = (COLORS, W, H, STAGE) => StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, width: W, height: H, opacity: 0.35 },
 
   topBar: {
+    zIndex: 10, elevation: 10,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 18, paddingTop: Platform.OS === 'ios' ? 56 : 42, paddingBottom: 6,
   },
@@ -363,7 +366,10 @@ const createStyles = (COLORS, W, H, STAGE) => StyleSheet.create({
     letterSpacing: 2.4, textTransform: 'uppercase',
   },
 
-  body: { flex: 1, justifyContent: 'center', paddingBottom: 16 },
+  // Centred when it fits; scrolls on short screens instead of overflowing
+  // upward and covering the close button.
+  bodyScroll: { flex: 1 },
+  body: { flexGrow: 1, justifyContent: 'center', paddingBottom: 24 },
 
   stageWrap: { height: STAGE, marginHorizontal: 24, justifyContent: 'center' },
   stageFill: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -403,11 +409,6 @@ const createStyles = (COLORS, W, H, STAGE) => StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
 
-  volumeRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 28, marginTop: 16,
-  },
-  volumeSlider: { flex: 1, height: 28 },
 
   bottomRow: { flexDirection: 'row', justifyContent: 'center', gap: 44, marginTop: 22 },
   bottomBtn: { alignItems: 'center', gap: 5 },

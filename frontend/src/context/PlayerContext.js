@@ -13,7 +13,7 @@ import React, { createContext, useContext, useState, useRef, useCallback, useEff
 import { Platform, PermissionsAndroid } from 'react-native';
 import { YTBridge } from '../components/YouTubePlayerBridge';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
-import { getStreamUrl, logPlay } from '../api';
+import { getStreamUrl, logPlay, getRecommendations, getArtistTracks, getTrending } from '../api';
 import * as Storage from '../services/StorageService';
 import { trackArt } from '../utils/trackArt';
 import { useTiltGestures, DEFAULT_TILT_MAP } from '../services/TiltGestureService';
@@ -34,6 +34,41 @@ const REPEAT_MODES = ['off', 'all', 'one'];
 const MAX_DIRECT_CANDIDATES = 3;
 const DIRECT_CANDIDATE_TIMEOUT_MS = 5000;
 const FADE_IN_DURATION_MS = 2000;
+
+// A stream that reports "playing" but whose position hasn't moved for this
+// long is treated as dead (expired URL, dropped connection) and re-resolved.
+const STALL_TIMEOUT_MS = 9000;
+const MAX_RECOVERIES_PER_TRACK = 2;
+
+// Every queued track remembers how it got there, so starting a new song can
+// drop an old playlist or autoplay run without touching songs the user
+// deliberately queued. Untagged (restored) items count as 'context'.
+const tagQueue = (tracks, source) => (tracks || []).map(t => ({ ...t, queueSource: source }));
+const isManual = (t) => t.queueSource === 'manual';
+
+const toSource = (candidate) =>
+  candidate.headers ? { uri: candidate.url, headers: candidate.headers } : { uri: candidate.url };
+
+// Picks what to play when the queue runs dry: similar tracks first, then the
+// same artist, then whatever's trending — skipping anything heard recently.
+async function findAutoplayTracks(seed, history) {
+  const recent = new Set([seed?.id, ...history.slice(0, 40).map(t => t.id)]);
+  const fresh = (list) => (list || []).filter(t => t?.id && !recent.has(t.id));
+
+  const seedIds = [...new Set([seed?.id, ...history.slice(0, 3).map(t => t.id)])].filter(Boolean).slice(0, 3);
+  let picks = fresh(await getRecommendations(seedIds));
+
+  if (picks.length < 3 && seed?.artist) {
+    const artist = seed.artist.split(',')[0].trim();
+    picks = picks.concat(fresh(await getArtistTracks(artist, 12)));
+  }
+  if (picks.length < 3) {
+    picks = picks.concat(fresh(await getTrending(15)));
+  }
+
+  const seen = new Set();
+  return picks.filter(t => (seen.has(t.id) ? false : seen.add(t.id))).slice(0, 10);
+}
 
 // Waits for a just-replaced source on `player` to actually start loading
 // real audio. Resolves true once we see a non-zero duration, false on timeout.
@@ -75,6 +110,8 @@ export function PlayerProvider({ children }) {
   const [fadeInEnabled, setFadeInEnabled] = useState(false);
   const [tiltGesturesEnabled, setTiltGesturesEnabled] = useState(false);
   const [tiltGestureMap, setTiltGestureMap] = useState(DEFAULT_TILT_MAP);
+  const [autoplayEnabled, setAutoplayEnabled] = useState(true);
+  const [autoplayActive, setAutoplayActive] = useState(false);
 
   // ─── Playback Engine ─────────────────────────────────────
   // 'native' = expo-audio playing a direct, ad-free stream (normal case)
@@ -92,6 +129,11 @@ export function PlayerProvider({ children }) {
   const playLockRef = useRef(0); // Prevents double-play race conditions
   const isLoadingRef = useRef(false); // Prevents status callback from overriding isPlaying during load
   const endHandledRef = useRef(false); // Prevents double-firing track-end for native status updates
+  const lastProgressRef = useRef({ at: 0, pos: -1 });
+  const recoveringRef = useRef(false);
+  const recoveriesRef = useRef(0);
+  const autoplayRef = useRef(true);
+  const autoplayBusyRef = useRef(false);
 
   // Use refs to avoid stale closures in callbacks
   const queueRef = useRef(queue);
@@ -108,6 +150,7 @@ export function PlayerProvider({ children }) {
   useEffect(() => { crossfadeRef.current = crossfadeDuration; }, [crossfadeDuration]);
   useEffect(() => { volumeRef.current = volume; }, [volume]);
   useEffect(() => { bassBoostRef.current = bassBoostOn; }, [bassBoostOn]);
+  useEffect(() => { autoplayRef.current = autoplayEnabled; }, [autoplayEnabled]);
 
   // Refs to avoid stale closures
   const positionRef = useRef(position);
@@ -157,6 +200,7 @@ export function PlayerProvider({ children }) {
           setFadeInEnabled(savedSettings.fadeInEnabled ?? false);
           setTiltGesturesEnabled(savedSettings.tiltGesturesEnabled ?? false);
           setTiltGestureMap({ ...DEFAULT_TILT_MAP, ...(savedSettings.tiltGestureMap || {}) });
+          setAutoplayEnabled(savedSettings.autoplayEnabled ?? true);
         }
 
         if (savedHistory?.length > 0) {
@@ -224,10 +268,11 @@ export function PlayerProvider({ children }) {
         fadeInEnabled,
         tiltGesturesEnabled,
         tiltGestureMap,
+        autoplayEnabled,
       });
     }, 500);
     return () => clearTimeout(persistSettingsTimer.current);
-  }, [volume, crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled, tiltGestureMap]);
+  }, [volume, crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled, tiltGestureMap, autoplayEnabled]);
 
   // ─── Native (expo-audio) Status → App State ──────────────
 
@@ -236,6 +281,9 @@ export function PlayerProvider({ children }) {
 
     const posMs = (status.currentTime || 0) * 1000;
     const durMs = (status.duration || 0) * 1000;
+    if (Math.abs(posMs - lastProgressRef.current.pos) > 200) {
+      lastProgressRef.current = { at: Date.now(), pos: posMs };
+    }
     setPosition(posMs);
     positionRef.current = posMs;
     setDuration(durMs);
@@ -255,11 +303,17 @@ export function PlayerProvider({ children }) {
       crossfadeTimerRef.current = 'active';
       const q = queueRef.current;
       const [next, ...rest] = q;
+      queueRef.current = rest;
       setQueue(rest);
       playTrackRef.current(next, true);
     }
 
-    if (status.didJustFinish && !crossfadeTimerRef.current && !endHandledRef.current) {
+    // While the next song is loading, the player can still report the
+    // previous one as ended — acting on that would skip the new song.
+    if (isLoadingRef.current) return;
+    const ended = status.didJustFinish || status.playbackState === 'ended'
+      || (durMs > 0 && posMs >= durMs - 400 && !status.playing && !!soundRef.current?.playing);
+    if (ended && !crossfadeTimerRef.current && !endHandledRef.current) {
       endHandledRef.current = true;
       handleTrackEndRef.current();
     }
@@ -286,6 +340,7 @@ export function PlayerProvider({ children }) {
         crossfadeTimerRef.current = 'active';
         const q = queueRef.current;
         const [next, ...rest] = q;
+        queueRef.current = rest;
         setQueue(rest);
         playTrackRef.current(next, true);
       }
@@ -366,6 +421,8 @@ export function PlayerProvider({ children }) {
     setCurrentTrack(track);
     currentTrackRef.current = track;
     endHandledRef.current = false;
+    if (!track.__recovery) recoveriesRef.current = 0;
+    lastProgressRef.current = { at: Date.now(), pos: -1 };
 
     try {
       if (fadeInTimerRef.current) {
@@ -403,7 +460,7 @@ export function PlayerProvider({ children }) {
       for (const candidate of candidates) {
         if (playLockRef.current !== myLock) return;
         try {
-          player.replace({ uri: candidate.url });
+          player.replace(toSource(candidate));
           player.play();
           const ok = await waitForPlayableOrTimeout(player, DIRECT_CANDIDATE_TIMEOUT_MS);
           if (playLockRef.current !== myLock) return;
@@ -465,6 +522,9 @@ export function PlayerProvider({ children }) {
       // Add to history
       setHistory(prev => [track, ...prev.filter(t => t.id !== track.id)].slice(0, 50));
 
+      // Line up what comes next now, while this song plays — not after it ends.
+      prefillAutoplayRef.current(track);
+
       // Log play to backend
       try {
         logPlay(track);
@@ -483,8 +543,25 @@ export function PlayerProvider({ children }) {
   const playTrackRef = useRef(playTrackInternal);
   playTrackRef.current = playTrackInternal;
 
+  // A song the user picks directly replaces whatever list was playing (an
+  // old playlist or autoplay run) but keeps songs they queued by hand.
   const playTrack = useCallback((track) => {
+    const kept = queueRef.current.filter(isManual);
+    queueRef.current = kept;
+    setQueue(kept);
+    fullQueueRef.current = [track];
     return playTrackRef.current(track);
+  }, []);
+
+  // Tapping a song inside Up Next jumps to it; everything after it stays.
+  const playFromQueue = useCallback((index) => {
+    const q = queueRef.current;
+    const target = q[index];
+    if (!target) return;
+    const rest = q.slice(index + 1);
+    queueRef.current = rest;
+    setQueue(rest);
+    return playTrackRef.current(target);
   }, []);
 
   // ─── Track End Handler ───────────────────────────────────
@@ -509,6 +586,7 @@ export function PlayerProvider({ children }) {
 
     if (q.length > 0) {
       const [next, ...rest] = q;
+      queueRef.current = rest;
       setQueue(rest);
       playTrackRef.current(next);
     } else if (rm === 'all' && fullQueueRef.current.length > 0) {
@@ -517,6 +595,8 @@ export function PlayerProvider({ children }) {
         : [...fullQueueRef.current];
       setQueue(reloaded.slice(1));
       playTrackRef.current(reloaded[0]);
+    } else if (autoplayRef.current) {
+      startAutoplayRef.current();
     } else {
       setIsPlaying(false);
     }
@@ -528,15 +608,181 @@ export function PlayerProvider({ children }) {
 
   // ─── Controls ────────────────────────────────────────────
 
+  // ─── Autoplay ────────────────────────────────────────────
+  // Picks are fetched as soon as a song starts with nothing queued after it,
+  // so by the time it ends the next song is already in Up Next. Fetching only
+  // at the end meant waiting on a sleeping server in silence, often with the
+  // screen off. One job per seed song is shared by the prefill and the
+  // end-of-queue path so they never race each other.
+  const autoplayJobRef = useRef({ seedId: null, promise: null });
+
+  const getAutoplayPicks = useCallback((seed) => {
+    const job = autoplayJobRef.current;
+    if (seed?.id && job.seedId === seed.id && job.promise) return job.promise;
+
+    const promise = (async () => {
+      let picks = await findAutoplayTracks(seed, historyRef.current).catch(() => []);
+      if (picks.length === 0) {
+        // The backend may still be waking up — give it one more go.
+        await new Promise(r => setTimeout(r, 12000));
+        picks = await findAutoplayTracks(seed, historyRef.current).catch(() => []);
+      }
+      return picks;
+    })();
+
+    autoplayJobRef.current = { seedId: seed?.id, promise };
+    promise.then((picks) => {
+      if (picks.length === 0 && autoplayJobRef.current.promise === promise) {
+        autoplayJobRef.current = { seedId: null, promise: null };
+      }
+    });
+    return promise;
+  }, []);
+
+  const canAutoplay = () => autoplayRef.current && repeatModeRef.current === 'off';
+
+  const prefillAutoplay = useCallback(async (seed) => {
+    if (!seed || !canAutoplay() || queueRef.current.length > 0) return;
+    const picks = await getAutoplayPicks(seed);
+    // Only fill if nothing changed while we were fetching.
+    if (!picks.length || !canAutoplay()) return;
+    if (currentTrackRef.current?.id !== seed.id || queueRef.current.length > 0) return;
+    const tagged = tagQueue(picks, 'auto');
+    queueRef.current = tagged;
+    setQueue(tagged);
+  }, [getAutoplayPicks]);
+  const prefillAutoplayRef = useRef(prefillAutoplay);
+  prefillAutoplayRef.current = prefillAutoplay;
+
+  // The queue ran dry at the end of a song (the prefill failed or is late).
+  const startAutoplay = useCallback(async () => {
+    const seed = currentTrackRef.current;
+    if (!seed) return;
+    setIsLoading(true);
+    isLoadingRef.current = true;
+    const picks = await getAutoplayPicks(seed);
+
+    // A late prefill (or the user) may have filled the queue meanwhile.
+    if (queueRef.current.length > 0) {
+      const [next, ...rest] = queueRef.current;
+      queueRef.current = rest;
+      setQueue(rest);
+      await playTrackRef.current(next);
+      return;
+    }
+    if (!picks.length) {
+      setIsLoading(false);
+      isLoadingRef.current = false;
+      setIsPlaying(false);
+      return;
+    }
+    const [first, ...rest] = tagQueue(picks, 'auto');
+    queueRef.current = rest;
+    setQueue(rest);
+    await playTrackRef.current(first);
+  }, [getAutoplayPicks]);
+  const startAutoplayRef = useRef(startAutoplay);
+  startAutoplayRef.current = startAutoplay;
+
+  // Derived rather than tracked: autoplay is active while its picks are queued.
+  useEffect(() => {
+    setAutoplayActive(queue.some(t => t.queueSource === 'auto'));
+  }, [queue]);
+
+  // Turning autoplay off removes what it queued; turning it on fills the queue.
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    if (!autoplayEnabled) {
+      const kept = queueRef.current.filter(t => t.queueSource !== 'auto');
+      if (kept.length !== queueRef.current.length) {
+        queueRef.current = kept;
+        setQueue(kept);
+      }
+    } else if (currentTrackRef.current && soundRef.current) {
+      prefillAutoplayRef.current(currentTrackRef.current);
+    }
+  }, [autoplayEnabled]);
+
+  // ─── Stall watchdog ──────────────────────────────────────
+  // Stream URLs expire and mobile connections drop. If we believe we're
+  // playing but the position hasn't moved, fetch a fresh stream and resume
+  // from where it stopped; after repeated failures, move on to the next song.
+  const recoverStream = useCallback(async () => {
+    const track = currentTrackRef.current;
+    if (!track || recoveringRef.current) return;
+    recoveringRef.current = true;
+    const resumeAt = Math.max(0, positionRef.current);
+
+    try {
+      if (recoveriesRef.current >= MAX_RECOVERIES_PER_TRACK) {
+        console.warn('[Watchdog] stream keeps dying — skipping track');
+        setError('This song kept dropping — skipped to the next one.');
+        handleTrackEndRef.current();
+        return;
+      }
+      recoveriesRef.current += 1;
+      console.warn(`[Watchdog] stall at ${Math.round(resumeAt / 1000)}s — re-resolving (attempt ${recoveriesRef.current})`);
+
+      const data = await getStreamUrl(track.title, track.artist, track.id);
+      const candidate = data?.audioUrls?.[0];
+      if (!candidate || currentTrackRef.current?.id !== track.id) return;
+
+      player.replace(toSource(candidate));
+      player.play();
+      const ok = await waitForPlayableOrTimeout(player, DIRECT_CANDIDATE_TIMEOUT_MS);
+      if (ok && resumeAt > 1500) await player.seekTo(resumeAt / 1000);
+      lastProgressRef.current = { at: Date.now(), pos: -1 };
+    } catch (e) {
+      console.warn('[Watchdog] recovery failed:', e);
+    } finally {
+      recoveringRef.current = false;
+    }
+  }, [player]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (playbackModeRef.current !== 'native') return;
+      if (!soundRef.current?.playing || isLoadingRef.current || recoveringRef.current) return;
+      if (Date.now() - lastProgressRef.current.at <= STALL_TIMEOUT_MS) return;
+
+      const state = player.currentStatus?.playbackState;
+      const dur = player.duration || 0;
+
+      // A finished song isn't a stall — hand it to the end-of-track logic.
+      if (state === 'ended' || (dur > 0 && player.currentTime >= dur - 1.5)) {
+        if (!endHandledRef.current) {
+          endHandledRef.current = true;
+          handleTrackEndRef.current();
+        }
+        return;
+      }
+      // Paused by the system (a call, another app) — respect it, don't restart.
+      if (!player.playing && state === 'ready') {
+        soundRef.current.playing = false;
+        return;
+      }
+      recoverStream();
+    }, 3000);
+    return () => clearInterval(id);
+  }, [recoverStream, player]);
+
   const togglePlay = useCallback(() => {
-    if (!soundRef.current) return;
+    // After a restart the last track is restored but nothing is loaded yet —
+    // pressing play should start it rather than silently doing nothing.
+    if (!soundRef.current) {
+      if (currentTrackRef.current) playTrackRef.current(currentTrackRef.current);
+      return;
+    }
     if (playbackModeRef.current === 'native') {
-      if (soundRef.current.playing) {
+      if (player.playing) {
         player.pause();
         soundRef.current.playing = false;
       } else {
+        const dur = player.duration || 0;
+        if (dur > 0 && player.currentTime >= dur - 0.5) player.seekTo(0);
         player.play();
         soundRef.current.playing = true;
+        lastProgressRef.current = { at: Date.now(), pos: -1 };
       }
     } else {
       if (soundRef.current.playing) {
@@ -593,10 +839,13 @@ export function PlayerProvider({ children }) {
           : [...fullQueueRef.current];
         setQueue(reloaded.slice(1));
         playTrackRef.current(reloaded[0]);
+      } else if (autoplayRef.current) {
+        startAutoplayRef.current();
       }
       return;
     }
     const [next, ...rest] = q;
+    queueRef.current = rest;
     setQueue(rest);
     playTrackRef.current(next);
   }, []);
@@ -632,21 +881,27 @@ export function PlayerProvider({ children }) {
 
   // ─── Queue Management ───────────────────────────────────
 
+  // Hand-queued songs go ahead of autoplay picks, like "play next" would.
   const addToQueue = useCallback((track) => {
-    setQueue(prev => [...prev, track]);
-  }, []);
-
-  const addMultipleToQueue = useCallback((tracks) => {
-    setQueue(prev => [...prev, ...tracks]);
-    fullQueueRef.current = tracks;
+    const q = queueRef.current;
+    const firstAuto = q.findIndex(t => t.queueSource === 'auto');
+    const item = { ...track, queueSource: 'manual' };
+    const next = firstAuto === -1
+      ? [...q, item]
+      : [...q.slice(0, firstAuto), item, ...q.slice(firstAuto)];
+    queueRef.current = next;
+    setQueue(next);
   }, []);
 
   const clearQueue = useCallback(() => {
+    queueRef.current = [];
     setQueue([]);
   }, []);
 
   const removeFromQueue = useCallback((index) => {
-    setQueue(prev => prev.filter((_, i) => i !== index));
+    const next = queueRef.current.filter((_, i) => i !== index);
+    queueRef.current = next;
+    setQueue(next);
   }, []);
 
   // ─── Shuffle & Repeat ───────────────────────────────────
@@ -697,6 +952,10 @@ export function PlayerProvider({ children }) {
     setFadeInEnabled(enabled);
   }, []);
 
+  const toggleAutoplay = useCallback((enabled) => {
+    setAutoplayEnabled(enabled);
+  }, []);
+
   // ─── Play All (playlist or search results) ──────────────
 
   const playAll = useCallback((tracks, startIndex = 0) => {
@@ -713,7 +972,9 @@ export function PlayerProvider({ children }) {
       rest = shuffleArray([...rest]);
     }
 
-    setQueue(rest);
+    const tagged = [...queueRef.current.filter(isManual), ...tagQueue(rest, 'context')];
+    queueRef.current = tagged;
+    setQueue(tagged);
     fullQueueRef.current = tracks;
     playTrackRef.current(first);
   }, []);
@@ -738,6 +999,8 @@ export function PlayerProvider({ children }) {
     fadeInEnabled,
     tiltGesturesEnabled,
     tiltGestureMap,
+    autoplayEnabled,
+    autoplayActive,
     // Playback engine (for the audio visualizer — real sample data is only
     // available in 'native' mode; 'bridge' means the YouTube embed fallback
     // is active and has no sampling access)
@@ -751,7 +1014,7 @@ export function PlayerProvider({ children }) {
     playNext,
     playPrevious,
     addToQueue,
-    addMultipleToQueue,
+    playFromQueue,
     clearQueue,
     removeFromQueue,
     toggleShuffle,
@@ -764,6 +1027,7 @@ export function PlayerProvider({ children }) {
     toggleBassBoost,
     toggleFadeIn,
     toggleTiltGestures,
+    toggleAutoplay,
     updateTiltGesture,
   };
 

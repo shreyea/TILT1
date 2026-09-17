@@ -1,7 +1,6 @@
 // src/services/AudioStreamService.js
-// Search-only service: iTunes for metadata + Piped for YouTube videoId
-// NO streaming URLs needed — YouTube IFrame bridge handles playback directly
-// This file ONLY finds the right videoId for a song
+// Last-resort title -> YouTube videoId lookup via public Piped mirrors, used
+// only when the backend search is unreachable.
 
 const PIPED_INSTANCES = [
   'https://pipedapi.wireway.ch',
@@ -84,17 +83,4 @@ export async function getAudioStreamUrl(title, artist) {
   }
 
   throw new Error(`Could not find "${title}" by ${artist} on YouTube.`);
-}
-
-/**
- * For a known videoId, just return it (no search needed).
- */
-export async function getAudioStreamById(videoId) {
-  return {
-    url: videoId,
-    videoId: videoId,
-    title: '',
-    duration: 0,
-    source: 'direct-id',
-  };
 }

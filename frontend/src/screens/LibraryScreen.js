@@ -13,6 +13,8 @@ import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
 import TrackActionSheet from '../components/TrackActionSheet';
 import EmptyState from '../components/EmptyState';
+import useBackHandler from '../hooks/useBackHandler';
+import { useIsFocused } from '@react-navigation/native';
 import PlaylistImportScreen from './PlaylistImportScreen';
 import * as Storage from '../services/StorageService';
 import { trackArt } from '../utils/trackArt';
@@ -248,6 +250,12 @@ export default function LibraryScreen() {
     />
   ), [playTrack, handleAddTrackToPlaylist, COLORS.primary, s.addTrackBtn]);
 
+  // Back from a playlist or Liked Songs returns to the library list.
+  // Tabs stay mounted in the background, so only claim back while visible.
+  const isFocused = useIsFocused();
+  useBackHandler(isFocused && showLiked, () => { setShowLiked(false); loadData(); });
+  useBackHandler(isFocused && !!selectedPlaylist, () => { setSelectedPlaylist(null); loadData(); });
+
   // ─── Liked Songs View ──────────────────────────────────
   if (showLiked) {
     return (
@@ -354,13 +362,64 @@ export default function LibraryScreen() {
           )}
           contentContainerStyle={{ paddingBottom: 140 }}
           ListEmptyComponent={
-            <View style={s.center}>
-              <Ionicons name="albums-outline" size={64} color={COLORS.textMuted} style={{ marginBottom: 12 }} />
-              <Text style={s.emptyText}>No tracks yet</Text>
-              <Text style={s.emptySub}>Search and add songs to this playlist</Text>
-            </View>
+            <EmptyState
+              compact
+              icon="musical-notes-outline"
+              title="This playlist is empty"
+              body="Tap Add songs above to start filling it."
+            />
           }
         />
+
+      {/* Add Songs / Suggestions Modal */}
+      <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
+        <View style={s.addSongsModalOverlay}>
+          <View style={s.addSongsModalContent}>
+            <View style={s.addSongsHeader}>
+              <Text style={s.addSongsTitle}>Add Songs</Text>
+              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={s.searchWrap}>
+              <Ionicons name="search" size={20} color={COLORS.textMuted} />
+              <TextInput
+                style={s.searchInput}
+                placeholder="Search songs..."
+                placeholderTextColor={COLORS.textMuted}
+                value={searchQuery}
+                onChangeText={handleSearch}
+                autoFocus={false}
+              />
+            </View>
+
+            <FlatList
+              data={searchQuery.length >= 2 ? searchResults : suggestions}
+              keyExtractor={(item, index) => item.id + '_' + index}
+              initialNumToRender={10} maxToRenderPerBatch={10} windowSize={5} removeClippedSubviews={true}
+              ListHeaderComponent={() => (
+                <View style={{ paddingVertical: 10 }}>
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '600' }}>
+                    {searchQuery.length >= 2 ? 'Search Results' : 'Suggested for you'}
+                  </Text>
+                </View>
+              )}
+              renderItem={renderSearchItem}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              ListEmptyComponent={() => (
+                <View style={s.center}>
+                  {isSearching ? (
+                    <Text style={s.emptySub}>Loading...</Text>
+                  ) : (
+                    <Text style={s.emptySub}>No results found</Text>
+                  )}
+                </View>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
       </View>
     );
   }
@@ -449,7 +508,7 @@ export default function LibraryScreen() {
       />
 
       {/* Create Playlist Modal */}
-      <Modal visible={showCreate} transparent animationType="fade">
+      <Modal visible={showCreate} transparent animationType="fade" onRequestClose={() => setShowCreate(false)}>
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
             <Text style={s.modalTitle}>New Playlist</Text>
@@ -463,56 +522,6 @@ export default function LibraryScreen() {
                 <Text style={{ color: '#FFF', fontWeight: '700' }}>Create</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Add Songs / Suggestions Modal */}
-      <Modal visible={showAddModal} transparent animationType="slide">
-        <View style={s.addSongsModalOverlay}>
-          <View style={s.addSongsModalContent}>
-            <View style={s.addSongsHeader}>
-              <Text style={s.addSongsTitle}>Add Songs</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={s.searchWrap}>
-              <Ionicons name="search" size={20} color={COLORS.textMuted} />
-              <TextInput
-                style={s.searchInput}
-                placeholder="Search songs..."
-                placeholderTextColor={COLORS.textMuted}
-                value={searchQuery}
-                onChangeText={handleSearch}
-                autoFocus={false}
-              />
-            </View>
-
-            <FlatList
-              data={searchQuery.length >= 2 ? searchResults : suggestions}
-              keyExtractor={(item, index) => item.id + '_' + index}
-              initialNumToRender={10} maxToRenderPerBatch={10} windowSize={5} removeClippedSubviews={true}
-              ListHeaderComponent={() => (
-                <View style={{ paddingVertical: 10 }}>
-                  <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '600' }}>
-                    {searchQuery.length >= 2 ? 'Search Results' : 'Suggested for you'}
-                  </Text>
-                </View>
-              )}
-              renderItem={renderSearchItem}
-              contentContainerStyle={{ paddingBottom: 40 }}
-              ListEmptyComponent={() => (
-                <View style={s.center}>
-                  {isSearching ? (
-                    <Text style={s.emptySub}>Loading...</Text>
-                  ) : (
-                    <Text style={s.emptySub}>No results found</Text>
-                  )}
-                </View>
-              )}
-            />
           </View>
         </View>
       </Modal>

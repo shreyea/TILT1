@@ -16,6 +16,9 @@ import TrackActionSheet from '../components/TrackActionSheet';
 import EmptyState from '../components/EmptyState';
 import { SPACING } from '../theme';
 import { trackArt } from '../utils/trackArt';
+import * as Storage from '../services/StorageService';
+import useBackHandler from '../hooks/useBackHandler';
+import { useIsFocused } from '@react-navigation/native';
 
 export default function SearchScreen() {
   const { COLORS } = useTheme();
@@ -33,10 +36,15 @@ export default function SearchScreen() {
   const [failed, setFailed] = useState(false);
   const [focused, setFocused] = useState(false);
   const [sheetTrack, setSheetTrack] = useState(null);
+  const [recent, setRecent] = useState([]);
 
   const debounceRef = useRef(null);
   const abortRef = useRef(null);
   const { playTrack, currentTrack, playAll } = usePlayer();
+
+  useEffect(() => {
+    Storage.getSearchHistory().then(setRecent).catch(() => {});
+  }, []);
 
   useEffect(() => () => {
     abortRef.current?.abort();
@@ -68,9 +76,13 @@ export default function SearchScreen() {
     }, 400);
   }, []);
 
-  const handleSearch = useCallback(async () => {
-    if (query.trim().length < 2) return;
+  const runSearch = useCallback(async (rawTerm) => {
+    const term = (rawTerm ?? '').trim();
+    if (term.length < 2) return;
     Keyboard.dismiss();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setQuery(term);
+    Storage.addSearchHistory(term).then(setRecent).catch(() => {});
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
@@ -80,7 +92,7 @@ export default function SearchScreen() {
     setSuggestions([]);
 
     try {
-      const data = await searchSongs(query.trim(), abortRef.current.signal);
+      const data = await searchSongs(term, abortRef.current.signal);
       setResults(data);
 
       const firstArtist = data[0]?.artist?.split(',')[0]?.trim();
@@ -100,13 +112,24 @@ export default function SearchScreen() {
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, []);
+
+  const handleSearch = useCallback(() => runSearch(query), [runSearch, query]);
+
+  const removeRecent = useCallback((term) => {
+    Storage.removeSearchHistory(term).then(setRecent).catch(() => {});
+  }, []);
+
+  const clearRecent = useCallback(() => {
+    Storage.clearSearchHistory().then(setRecent).catch(() => {});
+  }, []);
 
   const handleSuggestionPress = useCallback((track) => {
     setSuggestions([]);
     setQuery(`${track.title} ${track.artist}`);
+    Storage.addSearchHistory(query).then(setRecent).catch(() => {});
     playTrack(track);
-  }, [playTrack]);
+  }, [playTrack, query]);
 
   const clearSearch = useCallback(() => {
     abortRef.current?.abort();
@@ -118,6 +141,10 @@ export default function SearchScreen() {
     setArtistTracks([]);
     setArtistName('');
   }, []);
+
+  // Back from a results page returns to recent searches before leaving the tab.
+  const isFocused = useIsFocused();
+  useBackHandler(isFocused && (searched || query.length > 0), clearSearch);
 
   const renderTrackItem = useCallback(({ item }) => (
     <TrackItem
@@ -206,6 +233,32 @@ export default function SearchScreen() {
           actionLabel="Try again"
           onAction={handleSearch}
         />
+      ) : !searched && recent.length > 0 && !showSuggestions ? (
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 190 }}>
+          <View style={s.resultsBar}>
+            <Text style={s.resultsCount}>Recent searches</Text>
+            <TouchableOpacity onPress={clearRecent} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={s.clearText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+          {recent.map((term) => (
+            <TouchableOpacity
+              key={term}
+              style={s.recentRow}
+              onPress={() => runSearch(term)}
+              activeOpacity={0.6}
+            >
+              <Ionicons name="time-outline" size={17} color={COLORS.textMuted} />
+              <Text style={s.recentText} numberOfLines={1}>{term}</Text>
+              <TouchableOpacity
+                onPress={() => removeRecent(term)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={16} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       ) : !searched ? (
         <EmptyState
           icon="search-outline"
@@ -325,6 +378,12 @@ const createStyles = (COLORS) => StyleSheet.create({
   },
   sectionTitle: { color: COLORS.textPrimary, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
   playAll: { color: COLORS.primary, fontSize: 13, fontWeight: '700' },
+  clearText: { color: COLORS.textSecondary, fontSize: 13, fontWeight: '600' },
+  recentRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingHorizontal: SPACING.xl, paddingVertical: 13,
+  },
+  recentText: { flex: 1, color: COLORS.textPrimary, fontSize: 15 },
 
   artistSection: { marginTop: 22 },
   carousel: { paddingHorizontal: SPACING.xl, gap: 16 },

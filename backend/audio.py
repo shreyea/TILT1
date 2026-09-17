@@ -1,5 +1,7 @@
 # backend/audio.py
-# YouTube audio extraction via yt-dlp — no downloads, just streamable URLs
+# YouTube audio extraction via yt-dlp — no downloads, just streamable URLs.
+# Format 18 (muxed mp4) is preferred: audio-only adaptive URLs are cut off
+# after the first chunk unless the client supplies a proof-of-origin token.
 import yt_dlp
 import logging
 import os
@@ -31,7 +33,7 @@ def get_audio_url(song_title: str, artist: str) -> dict:
     query = f'{song_title} {artist} official audio'
     
     ydl_opts = {
-        "format": "bestaudio/best",
+        "format": "18/bestaudio/best",
         "quiet": True,
         "noplaylist": True,
         "extract_flat": False,
@@ -80,7 +82,7 @@ def get_audio_url(song_title: str, artist: str) -> dict:
 def get_audio_url_by_id(youtube_id: str) -> dict:
     """Extract audio URL from a known YouTube video ID."""
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': '18/bestaudio/best',
         'quiet': True,
         'no_warnings': True,
         'socket_timeout': 15,

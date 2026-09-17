@@ -14,8 +14,8 @@ export default function QueueScreen() {
   const s = useMemo(() => createStyles(COLORS, SHADOWS), [COLORS, SHADOWS]);
 
 
-  const { queue, currentTrack, playTrack, removeFromQueue, clearQueue,
-    shuffleOn, toggleShuffle, repeatMode, cycleRepeat } = usePlayer();
+  const { queue, currentTrack, playFromQueue, removeFromQueue, clearQueue,
+    shuffleOn, toggleShuffle, repeatMode, cycleRepeat, autoplayActive } = usePlayer();
   const getRepeatLabel = () => {
 
     if (repeatMode === 'off') return { text: 'Repeat Off', icon: 'repeat-outline' };
@@ -54,12 +54,14 @@ export default function QueueScreen() {
         </View>
       )}
       <View style={s.section}>
-        <Text style={s.sectionTitle}>Up Next · {queue.length} tracks</Text>
+        <Text style={s.sectionTitle}>
+          Up Next · {queue.length} tracks{autoplayActive ? ' · Autoplay' : ''}
+        </Text>
       </View>
       <FlatList
         data={queue} keyExtractor={(item, i) => item.id + '_' + i}
         renderItem={({ item, index }) => (
-          <TrackItem track={item} onPress={playTrack} showIndex={true} index={index}
+          <TrackItem track={item} onPress={() => playFromQueue(index)} showIndex={true} index={index}
             rightAction={
               <TouchableOpacity onPress={() => removeFromQueue(index)} style={s.removeBtn}>
                 <Ionicons name="close" size={16} color={COLORS.error} />
