@@ -1,8 +1,8 @@
 // src/screens/NowPlayingScreen.js
 // Full-bleed player. The artwork itself is the background — blurred and
-// darkened — so the screen needs no panels or cards. Cover / Pulse / Lyrics
+// darkened — so the screen needs no panels or cards. Cover / Lyrics
 // swap through the same stage area; everything else is type and one accent.
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, Image, TouchableOpacity, StyleSheet, useWindowDimensions,
   StatusBar, Platform, ActivityIndicator, ScrollView,
@@ -14,7 +14,6 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useTheme } from '../context/ThemeContext';
 import { usePlayer } from '../context/PlayerContext';
 import AudioSettingsScreen from './AudioSettingsScreen';
-import AudioVisualizer from '../components/AudioVisualizer';
 import AmbientPulse from '../components/AmbientPulse';
 import TrackActionSheet from '../components/TrackActionSheet';
 import * as Storage from '../services/StorageService';
@@ -35,7 +34,6 @@ const STAGE_EXIT = Platform.OS === 'web' ? undefined : FadeOut.duration(120);
 
 const STAGES = [
   { key: 'art', label: 'Cover' },
-  { key: 'visualizer', label: 'Pulse' },
   { key: 'lyrics', label: 'Lyrics' },
 ];
 
@@ -84,20 +82,18 @@ export default function NowPlayingScreen({ onClose }) {
     setLiked(!isLiked);
   }, [currentTrack]);
 
-  // Reset the stage whenever the song changes.
-  useEffect(() => {
-    setStageMode('art');
-    setSyncedLines([]);
-    setPlainLyrics(null);
-    setLyricsError(null);
-  }, [currentTrack?.id]);
+  const lyricsReqRef = useRef(0);
+  const durationRef = useRef(0);
+  durationRef.current = duration;
 
-  const fetchLyrics = useCallback(async () => {
-    if (!currentTrack) return;
+  const fetchLyrics = useCallback(async (track) => {
+    if (!track) return;
+    const req = ++lyricsReqRef.current;
     setLoadingLyrics(true);
     setLyricsError(null);
     try {
-      const result = await lookupLyrics(currentTrack);
+      const result = await lookupLyrics({ ...track, duration_ms: track.duration_ms || durationRef.current });
+      if (req !== lyricsReqRef.current) return;
       if (!result) {
         setLyricsError('No lyrics found for this track');
         setSyncedLines([]);
@@ -110,18 +106,27 @@ export default function NowPlayingScreen({ onClose }) {
         setSyncedLines([]);
       }
     } catch (e) {
-      setLyricsError('Could not load lyrics');
+      if (req === lyricsReqRef.current) setLyricsError('Could not load lyrics');
     } finally {
-      setLoadingLyrics(false);
+      if (req === lyricsReqRef.current) setLoadingLyrics(false);
     }
-  }, [currentTrack]);
+  }, []);
 
-  const selectStage = useCallback(async (mode) => {
+  // Reset on song change and fetch right away, so lyrics are ready when opened.
+  useEffect(() => {
+    setStageMode('art');
+    setSyncedLines([]);
+    setPlainLyrics(null);
+    setLyricsError(null);
+    if (currentTrack) fetchLyrics(currentTrack);
+    else lyricsReqRef.current++;
+  }, [currentTrack?.id, fetchLyrics]);
+
+  const selectStage = useCallback((mode) => {
     setStageMode(mode);
-    if (mode === 'lyrics' && !syncedLines.length && !plainLyrics && !lyricsError) {
-      await fetchLyrics();
-    }
-  }, [syncedLines.length, plainLyrics, lyricsError, fetchLyrics]);
+    // A failed lookup is retried each time the tab is opened.
+    if (mode === 'lyrics' && lyricsError && !loadingLyrics) fetchLyrics(currentTrack);
+  }, [lyricsError, loadingLyrics, currentTrack, fetchLyrics]);
 
   const activeLineIndex = useMemo(() => {
     if (!syncedLines.length) return -1;
@@ -176,9 +181,6 @@ export default function NowPlayingScreen({ onClose }) {
   };
 
   const renderStage = () => {
-    if (stageMode === 'visualizer') {
-      return <AudioVisualizer active size={stageSize} />;
-    }
     if (stageMode === 'lyrics') {
       return (
         <View style={s.stageArea}>

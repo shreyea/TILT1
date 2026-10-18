@@ -34,6 +34,8 @@ const REPEAT_MODES = ['off', 'all', 'one'];
 const MAX_DIRECT_CANDIDATES = 3;
 const DIRECT_CANDIDATE_TIMEOUT_MS = 5000;
 const FADE_IN_DURATION_MS = 2000;
+const PREFETCH_LEAD_MS = 60000;
+const PREFETCH_TTL_MS = 20 * 60 * 1000;
 
 // A stream that reports "playing" but whose position hasn't moved for this
 // long is treated as dead (expired URL, dropped connection) and re-resolved.
@@ -124,6 +126,8 @@ export function PlayerProvider({ children }) {
   const soundRef = useRef(null);
   const fullQueueRef = useRef([]); // For repeat-all
   const crossfadeTimerRef = useRef(null);
+  const prefetchRef = useRef(null);
+  const prefetchingRef = useRef(null);
   const fadeInTimerRef = useRef(null);
   const currentTrackRef = useRef(null);
   const playLockRef = useRef(0); // Prevents double-play race conditions
@@ -308,6 +312,21 @@ export function PlayerProvider({ children }) {
       playTrackRef.current(next, true);
     }
 
+    // Resolve the next song's stream ahead of time (see playTrackInternal).
+    const nextUp = queueRef.current[0];
+    if (
+      nextUp && durMs > 0 && durMs - posMs <= PREFETCH_LEAD_MS &&
+      prefetchRef.current?.id !== nextUp.id && prefetchingRef.current !== nextUp.id
+    ) {
+      prefetchingRef.current = nextUp.id;
+      getStreamUrl(nextUp.title, nextUp.artist, nextUp.id)
+        .then((data) => {
+          if (data?.audioUrls?.length) prefetchRef.current = { id: nextUp.id, data, at: Date.now() };
+        })
+        .catch(() => {})
+        .finally(() => { if (prefetchingRef.current === nextUp.id) prefetchingRef.current = null; });
+    }
+
     // While the next song is loading, the player can still report the
     // previous one as ended — acting on that would skip the new song.
     if (isLoadingRef.current) return;
@@ -435,13 +454,19 @@ export function PlayerProvider({ children }) {
         crossfadeTimerRef.current = null;
       }
 
+      // The next song's stream is resolved while the current one plays, so the
+      // handoff (often with the screen off) needs no network round-trip.
+      const pre = prefetchRef.current;
+      const cached = !track.__recovery && pre && pre.id === track.id
+        && Date.now() - pre.at < PREFETCH_TTL_MS ? pre.data : null;
+      prefetchRef.current = null;
+
       // Stop whatever was playing on either engine
-      try { player.pause(); } catch (e) {}
+      if (!cached) { try { player.pause(); } catch (e) {} }
       YTBridge.stop();
 
-      // Resolve the video + ranked direct (ad-free) audio URLs for this track
-      console.log(`[PlayerContext] Resolving stream for: ${track.title} by ${track.artist}`);
-      const streamData = await getStreamUrl(track.title, track.artist, track.id);
+      console.log(`[PlayerContext] Resolving stream for: ${track.title} by ${track.artist}${cached ? ' (prefetched)' : ''}`);
+      const streamData = cached || await getStreamUrl(track.title, track.artist, track.id);
       console.log(`[PlayerContext] videoId: ${streamData?.videoId}, ${streamData?.audioUrls?.length || 0} direct candidate(s)`);
 
       // If another playTrack was called while we were fetching, bail out

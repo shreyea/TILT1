@@ -146,6 +146,14 @@ export async function fetchLyrics(track) {
     if (hit) return hit;
   } catch (e) { /* fall through */ }
 
+  // 1b. Structured search — lrclib ranks this above free text for clean metadata.
+  try {
+    const hit = toResult(pickBest(await fetchJSON(
+      `${BASE}/search?track_name=${encodeURIComponent(variants[0])}&artist_name=${encodeURIComponent(artist)}`
+    ), ctx));
+    if (hit) return hit;
+  } catch (e) { /* fall through */ }
+
   // 2. Bare song name — empirically the highest-yield query for YouTube titles.
   for (const v of variants) {
     try {
