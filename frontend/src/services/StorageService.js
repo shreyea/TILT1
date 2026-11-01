@@ -15,6 +15,7 @@ const KEYS = {
   LIKED_SONGS: '@tilt_liked_songs',
   PLAYLISTS: '@tilt_playlists',
   SEARCH_HISTORY: '@tilt_search_history',
+  LISTENING: '@tilt_listening',
   // Playlist tracks are keyed per-playlist: @tilt_pl_tracks_{id}
 };
 
@@ -150,6 +151,21 @@ export async function removeSearchHistory(term) {
 export async function clearSearchHistory() {
   await setJSON(KEYS.SEARCH_HISTORY, []);
   return [];
+}
+
+// ─── Listening Time ──────────────────────────────────────────
+// { total: ms, days: { 'YYYY-MM-DD': ms } } — last 60 days kept.
+
+export async function getListening() {
+  return getJSON(KEYS.LISTENING, { total: 0, days: {} });
+}
+
+export async function saveListening(data) {
+  const days = data?.days || {};
+  const keys = Object.keys(days).sort().slice(-60);
+  const trimmed = {};
+  keys.forEach(k => { trimmed[k] = days[k]; });
+  return setJSON(KEYS.LISTENING, { total: data?.total || 0, days: trimmed });
 }
 
 // ─── Playlists ───────────────────────────────────────────────

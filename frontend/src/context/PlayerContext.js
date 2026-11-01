@@ -35,6 +35,7 @@ const MAX_DIRECT_CANDIDATES = 3;
 const DIRECT_CANDIDATE_TIMEOUT_MS = 5000;
 const FADE_IN_DURATION_MS = 2000;
 const PREFETCH_LEAD_MS = 60000;
+const HANDOFF_LEAD_MS = 1300;
 const PREFETCH_TTL_MS = 20 * 60 * 1000;
 
 // A stream that reports "playing" but whose position hasn't moved for this
@@ -332,6 +333,22 @@ export function PlayerProvider({ children }) {
     if (isLoadingRef.current) return;
     const ended = status.didJustFinish || status.playbackState === 'ended'
       || (durMs > 0 && posMs >= durMs - 400 && !status.playing && !!soundRef.current?.playing);
+    // Hand off to the next song a moment BEFORE this one ends, while the player
+    // is still playing: Android keeps the media service in the foreground and
+    // the app alive, so this works with the screen off. Waiting for the end
+    // lets the system demote the app first, and the next song then only
+    // started once the app was reopened.
+    const upNext = queueRef.current[0];
+    if (
+      upNext && status.playing && durMs > 0 && durMs - posMs <= HANDOFF_LEAD_MS &&
+      repeatModeRef.current !== 'one' && !crossfadeTimerRef.current && !endHandledRef.current &&
+      prefetchRef.current?.id === upNext.id
+    ) {
+      endHandledRef.current = true;
+      handleTrackEndRef.current();
+      return;
+    }
+
     if (ended && !crossfadeTimerRef.current && !endHandledRef.current) {
       endHandledRef.current = true;
       handleTrackEndRef.current();
@@ -929,13 +946,21 @@ export function PlayerProvider({ children }) {
     setQueue(next);
   }, []);
 
+  // Drag-to-reorder from the Up Next list.
+  const reorderQueue = useCallback((next) => {
+    queueRef.current = next;
+    setQueue(next);
+  }, []);
+
   // ─── Shuffle & Repeat ───────────────────────────────────
 
   const toggleShuffle = useCallback(() => {
     setShuffle(prev => {
       if (!prev) {
         // Turning shuffle ON — randomize current queue
-        setQueue(q => shuffleArray([...q]));
+        const shuffled = shuffleArray([...queueRef.current]);
+        queueRef.current = shuffled;
+        setQueue(shuffled);
       }
       return !prev;
     });
@@ -980,6 +1005,52 @@ export function PlayerProvider({ children }) {
   const toggleAutoplay = useCallback((enabled) => {
     setAutoplayEnabled(enabled);
   }, []);
+
+  // ─── Listening Time ─────────────────────────────────────
+  // Counted in a ref (a per-second state update would re-render every screen)
+  // and read on demand by the hourglass.
+  const isPlayingRef = useRef(false);
+  isPlayingRef.current = isPlaying;
+  const listeningRef = useRef({ total: 0, days: {} });
+
+  const dayKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    let loaded = false;
+    Storage.getListening().then((saved) => {
+      const cur = listeningRef.current;
+      // Merge anything counted before the saved data arrived.
+      const days = { ...(saved?.days || {}) };
+      Object.keys(cur.days).forEach(k => { days[k] = (days[k] || 0) + cur.days[k]; });
+      listeningRef.current = { total: (saved?.total || 0) + cur.total, days };
+      loaded = true;
+    });
+    let sinceSave = 0;
+    const id = setInterval(() => {
+      if (!isPlayingRef.current || isLoadingRef.current) return;
+      const l = listeningRef.current;
+      const k = dayKey();
+      l.total += 1000;
+      l.days[k] = (l.days[k] || 0) + 1000;
+      sinceSave += 1;
+      if (sinceSave >= 15 && loaded) {
+        sinceSave = 0;
+        Storage.saveListening(l);
+      }
+    }, 1000);
+    return () => {
+      clearInterval(id);
+      if (loaded) Storage.saveListening(listeningRef.current);
+    };
+  }, []);
+
+  const getListening = useCallback(() => ({
+    total: listeningRef.current.total,
+    today: listeningRef.current.days[dayKey()] || 0,
+  }), []);
 
   // ─── Play All (playlist or search results) ──────────────
 
@@ -1042,6 +1113,8 @@ export function PlayerProvider({ children }) {
     playFromQueue,
     clearQueue,
     removeFromQueue,
+    reorderQueue,
+    getListening,
     toggleShuffle,
     cycleRepeat,
     playAll,

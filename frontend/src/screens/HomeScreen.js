@@ -14,18 +14,10 @@ import { useTheme } from '../context/ThemeContext';
 import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
 import TrackActionSheet from '../components/TrackActionSheet';
-import { getRecommendations, getBasedSuggestions, getTrending, getNewReleases, getMoodTracks, getArtistTracks } from '../api';
+import ListeningModal from '../components/ListeningModal';
+import { getRecommendations, getBasedSuggestions, getTrending, getNewReleases, getArtistTracks } from '../api';
 import { SPACING } from '../theme';
 import { trackArt } from '../utils/trackArt';
-
-const MOOD_CARDS = [
-  { key: 'morning', label: 'Morning', icon: 'sunny-outline' },
-  { key: 'workout', label: 'Workout', icon: 'barbell-outline' },
-  { key: 'night', label: 'Night Drive', icon: 'moon-outline' },
-  { key: 'focus', label: 'Focus', icon: 'eye-outline' },
-  { key: 'party', label: 'Party', icon: 'sparkles-outline' },
-  { key: 'relax', label: 'Relax', icon: 'leaf-outline' },
-];
 
 export default function HomeScreen() {
   const { COLORS, themeName, toggleTheme } = useTheme();
@@ -36,29 +28,19 @@ export default function HomeScreen() {
   const [basedSuggestions, setBasedSuggestions] = useState([]);
   const [trending, setTrending] = useState([]);
   const [newReleases, setNewReleases] = useState([]);
-  const [moodTracks, setMoodTracks] = useState([]);
-  const [selectedMood, setSelectedMood] = useState(null);
 
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [loadingTrending, setLoadingTrending] = useState(true);
-  const [loadingMood, setLoadingMood] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const [artistBasedTracks, setArtistBasedTracks] = useState([]);
   const [artistBasedName, setArtistBasedName] = useState('');
 
   const [sheetTrack, setSheetTrack] = useState(null);
+  const [showListening, setShowListening] = useState(false);
 
   const openSheet = useCallback((track) => setSheetTrack(track), []);
   const closeSheet = useCallback(() => setSheetTrack(null), []);
-
-  const getTimeMood = useCallback(() => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 10) return 'morning';
-    if (hour >= 10 && hour < 17) return 'focus';
-    if (hour >= 17 && hour < 21) return 'party';
-    return 'night';
-  }, []);
 
   const loadFeed = useCallback(async () => {
     try {
@@ -66,20 +48,12 @@ export default function HomeScreen() {
       const [t, nr] = await Promise.all([getTrending(15), getNewReleases(10)]);
       setTrending(t || []);
       setNewReleases(nr || []);
-      setLoadingTrending(false);
-
-      const autoMood = getTimeMood();
-      setSelectedMood(autoMood);
-      setLoadingMood(true);
-      const mt = await getMoodTracks(autoMood, 10);
-      setMoodTracks(mt || []);
-      setLoadingMood(false);
     } catch (e) {
       console.warn('loadFeed failed (non-fatal):', e);
+    } finally {
       setLoadingTrending(false);
-      setLoadingMood(false);
     }
-  }, [getTimeMood]);
+  }, []);
 
   useEffect(() => { loadFeed(); }, [loadFeed]);
 
@@ -121,36 +95,30 @@ export default function HomeScreen() {
     loadArtistRecs();
   }, [history.length, artistBasedName]);
 
-  const handleMoodSelect = useCallback(async (mood) => {
-    try {
-      setSelectedMood(mood);
-      setLoadingMood(true);
-      setMoodTracks((await getMoodTracks(mood, 10)) || []);
-      setLoadingMood(false);
-    } catch (e) {
-      setLoadingMood(false);
-    }
-  }, []);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadFeed();
     setRefreshing(false);
   }, [loadFeed]);
 
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  }, []);
-
-  const moodLabel = useMemo(
-    () => MOOD_CARDS.find(m => m.key === selectedMood)?.label || 'For You',
-    [selectedMood]
-  );
-
   const lastPlayed = history.length > 0 ? history[0] : null;
+
+  // "For you": everything the recommender suggests, de-duplicated, minus what
+  // is already playing. Before there's any history, fall back to what's new.
+  const forYou = useMemo(() => {
+    const seen = new Set(currentTrack?.id ? [currentTrack.id] : []);
+    const out = [];
+    const pools = [recommendations, basedSuggestions, artistBasedTracks];
+    if (out.length === 0 && recommendations.length + basedSuggestions.length + artistBasedTracks.length === 0) {
+      pools.push(newReleases);
+    }
+    for (const pool of pools) {
+      for (const t of pool) {
+        if (t?.id && !seen.has(t.id)) { seen.add(t.id); out.push(t); }
+      }
+    }
+    return out.slice(0, 20);
+  }, [recommendations, basedSuggestions, artistBasedTracks, newReleases, currentTrack?.id]);
 
   const renderTrackCard = useCallback(({ item }) => {
     const art = trackArt(item);
@@ -225,8 +193,14 @@ export default function HomeScreen() {
         <View style={s.header}>
           <View style={{ flex: 1 }}>
             <Text style={s.wordmark}>T <Text style={s.wordmarkSlash}>\</Text> L T</Text>
-            <Text style={s.greeting}>{greeting}</Text>
           </View>
+          <TouchableOpacity
+            onPress={() => setShowListening(true)}
+            style={[s.themeBtn, { marginRight: 10 }]}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="hourglass-outline" size={17} color={COLORS.textSecondary} />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={toggleTheme}
             style={s.themeBtn}
@@ -267,40 +241,11 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Mood — monochrome chips, accent marks the selection */}
-        <View style={s.section}>
-          <Text style={[s.sectionTitle, { paddingHorizontal: SPACING.xl }]}>Your mood</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.carousel}>
-            {MOOD_CARDS.map((mood) => {
-              const active = selectedMood === mood.key;
-              return (
-                <TouchableOpacity
-                  key={mood.key}
-                  onPress={() => handleMoodSelect(mood.key)}
-                  activeOpacity={0.7}
-                  style={[s.moodChip, active && s.moodChipActive]}
-                >
-                  <Ionicons name={mood.icon} size={15} color={active ? COLORS.background : COLORS.textSecondary} />
-                  <Text style={[s.moodText, active && s.moodTextActive]}>{mood.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {selectedMood && (
+        {/* For you — the recommender's picks */}
+        {forYou.length > 0 && (
           <View style={s.section}>
-            <SectionHeader title={moodLabel} tracks={moodTracks} />
-            {loadingMood
-              ? <ActivityIndicator size="small" color={COLORS.primary} style={s.loader} />
-              : <Carousel data={moodTracks.slice(0, 8)} prefix="mood" />}
-          </View>
-        )}
-
-        {basedSuggestions.length > 0 && (
-          <View style={s.section}>
-            <SectionHeader title="Based on your activity" tracks={basedSuggestions} />
-            <Carousel data={basedSuggestions} prefix="based" />
+            <SectionHeader title="For you" tracks={forYou} />
+            <Carousel data={forYou} prefix="foryou" />
           </View>
         )}
 
@@ -323,25 +268,6 @@ export default function HomeScreen() {
             ))
           )}
         </View>
-
-        {recommendations.length > 0 && (
-          <View style={s.section}>
-            <SectionHeader title="Recommended for you" tracks={recommendations} />
-            {loadingRecs ? (
-              <ActivityIndicator size="small" color={COLORS.primary} style={s.loader} />
-            ) : (
-              recommendations.slice(0, 5).map((item) => (
-                <TrackItem
-                  key={`rec_${item.id}`}
-                  track={item}
-                  onPress={playTrack}
-                  onMore={openSheet}
-                  isPlaying={currentTrack?.id === item.id}
-                />
-              ))
-            )}
-          </View>
-        )}
 
         {history.length > 1 && (
           <View style={s.section}>
@@ -366,6 +292,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       <TrackActionSheet track={sheetTrack} visible={!!sheetTrack} onClose={closeSheet} />
+      <ListeningModal visible={showListening} onClose={() => setShowListening(false)} />
     </View>
   );
 }
@@ -388,7 +315,6 @@ const createStyles = (COLORS) => StyleSheet.create({
     letterSpacing: 7,
   },
   wordmarkSlash: { color: COLORS.primary },
-  greeting: { color: COLORS.textSecondary, fontSize: 14, marginTop: 8, letterSpacing: 0.2 },
 
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
@@ -437,12 +363,4 @@ const createStyles = (COLORS) => StyleSheet.create({
   cardTitle: { color: COLORS.textPrimary, fontSize: 14, fontWeight: '600' },
   cardArtist: { color: COLORS.textSecondary, fontSize: 12, marginTop: 3 },
 
-  moodChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    paddingHorizontal: 15, paddingVertical: 9, borderRadius: 999,
-    borderWidth: 1, borderColor: COLORS.cardBorder,
-  },
-  moodChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  moodText: { color: COLORS.textSecondary, fontSize: 13, fontWeight: '600' },
-  moodTextActive: { color: COLORS.background, fontWeight: '700' },
 });

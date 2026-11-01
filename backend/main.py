@@ -9,7 +9,7 @@ import urllib.parse
 from spotify import (
     search_songs, get_track_details, get_recommendations,
     get_trending_tracks, get_new_releases, get_mood_recommendations,
-    search_artist_tracks
+    search_artist_tracks, get_youtube_playlist
 )
 from audio import get_audio_url, get_audio_url_by_id
 from playlist import (
@@ -171,6 +171,21 @@ def artist_tracks(artist_name: str, limit: int = 15):
     except Exception as e:
         logger.error(f'Artist search failed: {e}')
         return {'results': [], 'count': 0}
+
+
+@app.get('/yt-playlist')
+def yt_playlist(list: str = Query(..., description="YouTube playlist id")):
+    """Fetch a public YouTube playlist's tracks (used by playlist import)."""
+    try:
+        data = get_youtube_playlist(list)
+        if not data['tracks']:
+            raise HTTPException(404, 'This playlist has no playable tracks.')
+        return data
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f'Playlist fetch failed for {list}: {e}')
+        raise HTTPException(502, f'Could not read that playlist: {e}')
 
 
 # ─── Audio Streaming ────────────────────────────────────────

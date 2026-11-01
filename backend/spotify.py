@@ -204,3 +204,23 @@ def search_artist_tracks(artist_name: str, limit: int = 15):
     """
     return search_songs(f'{artist_name} songs', limit)
 
+
+
+def get_youtube_playlist(playlist_id: str, limit: int = 500):
+    """Public YouTube / YouTube Music playlist -> { name, uploader, cover, tracks }."""
+    data = _retry_yt_call(yt.get_playlist, playlist_id, limit=limit)
+    tracks = []
+    for item in data.get('tracks', []) or []:
+        if not item.get('videoId'):
+            continue  # unavailable / deleted entries
+        t = _format_track(item)
+        if t and t['id']:
+            tracks.append(t)
+    thumbs = data.get('thumbnails') or []
+    author = data.get('author') or {}
+    return {
+        'name': data.get('title') or 'Imported Playlist',
+        'uploader': author.get('name', '') if isinstance(author, dict) else '',
+        'cover': thumbs[-1]['url'] if thumbs else (tracks[0]['art_url'] if tracks else None),
+        'tracks': tracks,
+    }

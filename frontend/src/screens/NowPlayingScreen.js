@@ -20,6 +20,7 @@ import * as Storage from '../services/StorageService';
 import { trackArt } from '../utils/trackArt';
 import { fetchLyrics as lookupLyrics } from '../services/LyricsService';
 import useBackHandler from '../hooks/useBackHandler';
+import LyricsFullscreen from '../components/LyricsFullscreen';
 
 function fmt(ms) {
   if (!ms || ms < 0) return '0:00';
@@ -53,9 +54,11 @@ export default function NowPlayingScreen({ onClose }) {
   const [liked, setLiked] = useState(false);
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [showAmbient, setShowAmbient] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
   const [showSheet, setShowSheet] = useState(false);
 
   // Nested overlays close before the player itself does.
+  useBackHandler(showLyrics, () => setShowLyrics(false));
   useBackHandler(showAmbient, () => setShowAmbient(false));
   useBackHandler(showAudioSettings, () => setShowAudioSettings(false));
   const [stageMode, setStageMode] = useState('art');
@@ -169,7 +172,9 @@ export default function NowPlayingScreen({ onClose }) {
           </TouchableOpacity>
         ) : <View style={s.lyricSpacer} />}
 
-        <Text style={s.lyricCurrent} numberOfLines={3}>{current?.text}</Text>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => setShowLyrics(true)}>
+          <Text style={s.lyricCurrent} numberOfLines={3}>{current?.text}</Text>
+        </TouchableOpacity>
 
         {nextLine ? (
           <TouchableOpacity activeOpacity={0.7} onPress={() => seekTo(nextLine.time)}>
@@ -184,6 +189,16 @@ export default function NowPlayingScreen({ onClose }) {
     if (stageMode === 'lyrics') {
       return (
         <View style={s.stageArea}>
+          {(syncedLines.length > 0 || plainLyrics) && (
+            <TouchableOpacity
+              onPress={() => setShowLyrics(true)}
+              style={s.expandBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="expand-outline" size={18} color={COLORS.textSecondary} />
+              <Text style={s.expandText}>Full screen</Text>
+            </TouchableOpacity>
+          )}
           {loadingLyrics ? (
             <ActivityIndicator size="large" color={COLORS.primary} />
           ) : lyricsError ? (
@@ -323,6 +338,24 @@ export default function NowPlayingScreen({ onClose }) {
         </View>
       </ScrollView>
 
+      {showLyrics && (
+        <View style={s.fullOverlay}>
+          <LyricsFullscreen
+            track={currentTrack}
+            lines={syncedLines}
+            plain={plainLyrics}
+            loading={loadingLyrics}
+            error={lyricsError}
+            position={position}
+            duration={duration}
+            isPlaying={isPlaying}
+            onTogglePlay={togglePlay}
+            onSeek={seekTo}
+            onClose={() => setShowLyrics(false)}
+            onRetry={() => fetchLyrics(currentTrack)}
+          />
+        </View>
+      )}
       {showAmbient && (
         <View style={s.fullOverlay}>
           <AmbientPulse onClose={() => setShowAmbient(false)} />
@@ -424,6 +457,8 @@ const createStyles = (COLORS, W, H, STAGE) => StyleSheet.create({
     textAlign: 'center', fontWeight: '800', letterSpacing: -0.3,
   },
   lyricPlain: { color: COLORS.textSecondary, fontSize: 15, lineHeight: 26, textAlign: 'center' },
+  expandBtn: { position: 'absolute', top: 0, right: 0, flexDirection: 'row', alignItems: 'center', gap: 6, zIndex: 2 },
+  expandText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
   lyricsMessage: { color: COLORS.textSecondary, fontSize: 14, marginTop: 12, textAlign: 'center' },
 
   fullOverlay: {

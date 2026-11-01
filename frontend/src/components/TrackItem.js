@@ -79,7 +79,7 @@ function TrackItem({
 
         {rightAction}
 
-        {onMore && !drag && (
+        {onMore && (
           <TouchableOpacity
             onPress={() => onMore(track)}
             style={s.moreBtn}
@@ -90,7 +90,7 @@ function TrackItem({
         )}
 
         {drag && (
-          <TouchableOpacity onLongPress={drag} delayLongPress={100} style={s.dragHandle}>
+          <TouchableOpacity onPressIn={drag} onLongPress={drag} delayLongPress={100} style={s.dragHandle}>
             <Ionicons name="reorder-three" size={22} color={COLORS.textMuted} />
           </TouchableOpacity>
         )}
@@ -100,7 +100,9 @@ function TrackItem({
 }
 
 function areEqual(prev, next) {
+  // Queue rows re-render on reorder: index and the drag callback both change.
   return (
+    prev.drag === next.drag &&
     prev.track?.id === next.track?.id &&
     prev.isPlaying === next.isPlaying &&
     prev.isActive === next.isActive &&

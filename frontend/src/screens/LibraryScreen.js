@@ -12,6 +12,7 @@ import { getRecommendations, searchSongs, getTrending } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import TrackItem from '../components/TrackItem';
 import TrackActionSheet from '../components/TrackActionSheet';
+import PlaylistEditModal from '../components/PlaylistEditModal';
 import EmptyState from '../components/EmptyState';
 import useBackHandler from '../hooks/useBackHandler';
 import { useIsFocused } from '@react-navigation/native';
@@ -40,6 +41,7 @@ export default function LibraryScreen() {
   const [isSearching, setIsSearching] = useState(false);
   
   const [showImport, setShowImport] = useState(false);
+  const [editPlaylist, setEditPlaylist] = useState(null);
   const [sheetTrack, setSheetTrack] = useState(null);
   const { playTrack, currentTrack, playAll, addToQueue } = usePlayer();
   const searchAbortControllerRef = useRef(null);
@@ -153,7 +155,7 @@ export default function LibraryScreen() {
         if (plIndex >= 0) {
           allPls[plIndex].track_count = updated.length;
           // Set cover art if it's the first track
-          if (updated.length === 1) {
+          if (updated.length === 1 && !allPls[plIndex].custom_cover) {
              allPls[plIndex].cover_url = trackArt(track);
           }
           await Storage.savePlaylists(allPls);
@@ -181,10 +183,8 @@ export default function LibraryScreen() {
       const plIndex = allPls.findIndex(p => p.id === selectedPlaylist.id);
       if (plIndex >= 0) {
         allPls[plIndex].track_count = updated.length;
-        if (updated.length === 0) {
-           allPls[plIndex].cover_url = null;
-        } else if (allPls[plIndex].cover_url === existing.find(t=>t.id===trackId)?.art_url_small) {
-           allPls[plIndex].cover_url = trackArt(updated[0]);
+        if (!allPls[plIndex].custom_cover) {
+          allPls[plIndex].cover_url = updated.length ? trackArt(updated[0]) : null;
         }
         await Storage.savePlaylists(allPls);
         setPlaylists(allPls);
@@ -221,12 +221,19 @@ export default function LibraryScreen() {
           const pls = await Storage.getPlaylists();
           await Storage.savePlaylists(pls.filter(p => p.id !== pl.id));
           await Storage.removePlaylistTracks(pl.id);
+          setEditPlaylist(null);
+          setSelectedPlaylist(null);
           loadData();
         }
       },
     ]);
   }, [loadData]);
   
+  const handlePlaylistSaved = useCallback((updated) => {
+    setPlaylists(prev => prev.map(p => (p.id === updated.id ? updated : p)));
+    setSelectedPlaylist(prev => (prev && prev.id === updated.id ? updated : prev));
+  }, []);
+
   // Memoized render items
   const renderLikedSong = useCallback(({ item, index }) => (
     <TrackItem
@@ -303,11 +310,17 @@ export default function LibraryScreen() {
       <View style={s.container}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
         <LinearGradient colors={[COLORS.primary + '40', COLORS.background]} style={s.plHeader}>
-          <TouchableOpacity onPress={() => { setSelectedPlaylist(null); loadData(); }} style={s.backBtn}>
-            <Ionicons name="arrow-back" size={28} color="#FFF" />
-          </TouchableOpacity>
+          <View style={s.plTopRow}>
+            <TouchableOpacity onPress={() => { setSelectedPlaylist(null); loadData(); }} style={s.backBtn}>
+              <Ionicons name="arrow-back" size={28} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setEditPlaylist(selectedPlaylist)} style={s.backBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="create-outline" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
           {/* Playlist cover */}
-          <View style={s.plCoverWrap}>
+          <TouchableOpacity activeOpacity={0.85} onPress={() => setEditPlaylist(selectedPlaylist)} style={s.plCoverWrap}>
             {selectedPlaylist.cover_url ? (
               <Image source={{ uri: selectedPlaylist.cover_url }} style={s.plCover} />
             ) : (
@@ -315,7 +328,7 @@ export default function LibraryScreen() {
                 <Ionicons name="musical-notes" size={40} color={COLORS.textSecondary} />
               </View>
             )}
-          </View>
+          </TouchableOpacity>
           <Text style={s.plTitle}>{selectedPlaylist.name}</Text>
           <Text style={s.plSub}>{tracks.length} tracks</Text>
           <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center' }}>
@@ -370,6 +383,14 @@ export default function LibraryScreen() {
             />
           }
         />
+
+      <PlaylistEditModal
+        visible={!!editPlaylist}
+        playlist={editPlaylist}
+        onClose={() => setEditPlaylist(null)}
+        onSaved={handlePlaylistSaved}
+        onDelete={handleDeletePlaylist}
+      />
 
       {/* Add Songs / Suggestions Modal */}
       <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
@@ -436,7 +457,8 @@ export default function LibraryScreen() {
             style={s.ghostBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="download-outline" size={17} color={COLORS.textSecondary} />
+            <Ionicons name="logo-youtube" size={17} color={COLORS.textSecondary} />
+            <Text style={s.ghostLabel}>Import</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowCreate(true)}
@@ -475,7 +497,7 @@ export default function LibraryScreen() {
             <TouchableOpacity
               style={s.plCard}
               onPress={() => loadTracks(item)} activeOpacity={0.7}
-              onLongPress={() => handleDeletePlaylist(item)}
+              onLongPress={() => setEditPlaylist(item)}
             >
               {item.cover_url ? (
                 <Image source={{ uri: item.cover_url }} style={s.plArt} />
@@ -537,6 +559,13 @@ export default function LibraryScreen() {
           }}
         />
       </Modal>
+      <PlaylistEditModal
+        visible={!!editPlaylist}
+        playlist={editPlaylist}
+        onClose={() => setEditPlaylist(null)}
+        onSaved={handlePlaylistSaved}
+        onDelete={handleDeletePlaylist}
+      />
       <TrackActionSheet track={sheetTrack} visible={!!sheetTrack} onClose={() => setSheetTrack(null)} />
     </View>
   );
@@ -550,8 +579,11 @@ const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
   },
   headerTitle: { fontSize: 30, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.6 },
   headerActions: { flexDirection: 'row', gap: 4 },
+  ghostLabel: { color: COLORS.textSecondary, fontSize: 13, fontWeight: '600' },
+  plTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   ghostBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    minWidth: 38, height: 38, borderRadius: 19,
+    flexDirection: 'row', gap: 6, paddingHorizontal: 11,
     borderWidth: 1, borderColor: COLORS.cardBorder,
     justifyContent: 'center', alignItems: 'center',
   },

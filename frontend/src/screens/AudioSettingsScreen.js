@@ -1,107 +1,74 @@
-import { useTheme } from '../context/ThemeContext';
-import React, { useMemo,  useState } from 'react';
+// src/screens/AudioSettingsScreen.js
+// Flat, list-style settings: grouped by heading, separated by hairlines —
+// no cards, no icon tiles. Controls sit at the right of each row.
+import React, { useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  StatusBar, Platform, Switch
+  StatusBar, Platform, Switch,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
+import { useTheme } from '../context/ThemeContext';
 import { usePlayer } from '../context/PlayerContext';
 import { TILT_ACTIONS, TILT_ACTION_LABELS, TILT_DIRECTIONS } from '../services/TiltGestureService';
-import { SPACING, BORDER_RADIUS } from '../theme';
-const EQ_BANDS = [
-  { label: '60', freq: '60Hz' },
-  { label: '230', freq: '230Hz' },
-  { label: '910', freq: '910Hz' },
-  { label: '3.6k', freq: '3.6kHz' },
-  { label: '14k', freq: '14kHz' },
-];
-const EQ_PRESETS = [
-  { name: 'Flat', values: [0, 0, 0, 0, 0] },
-  { name: 'Bass Boost', values: [6, 4, 0, 0, 0] },
-  { name: 'Treble Boost', values: [0, 0, 0, 3, 6] },
-  { name: 'Rock', values: [4, 2, -1, 3, 5] },
-  { name: 'Pop', values: [-1, 2, 4, 2, -1] },
-  { name: 'Jazz', values: [3, 0, 1, 3, 4] },
-  { name: 'Classical', values: [4, 2, -1, 2, 4] },
-  { name: 'Hip Hop', values: [5, 3, 0, 1, 3] },
-  { name: 'Electronic', values: [4, 2, 0, 2, 5] },
-];
-export default function AudioSettingsScreen({ onClose }) {
-  const { COLORS, SHADOWS, themeName, toggleTheme } = useTheme();
-  const s = useMemo(() => createStyles(COLORS, SHADOWS), [COLORS, SHADOWS]);
+import { SPACING } from '../theme';
 
+const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+export default function AudioSettingsScreen({ onClose }) {
+  const { COLORS } = useTheme();
+  const s = useMemo(() => createStyles(COLORS), [COLORS]);
 
   const {
     crossfadeDuration, playbackSpeed, bassBoostOn, fadeInEnabled, tiltGesturesEnabled, tiltGestureMap, autoplayEnabled,
     updateCrossfade, updatePlaybackSpeed, toggleBassBoost, toggleFadeIn, toggleTiltGestures, updateTiltGesture, toggleAutoplay,
   } = usePlayer();
-  const [spatialAudio, setSpatialAudio] = useState(false);
-  const [eqEnabled, setEqEnabled] = useState(false);
-  const [eqValues, setEqValues] = useState([0, 0, 0, 0, 0]);
-  const [selectedPreset, setSelectedPreset] = useState('Flat');
-  const applyPreset = (preset) => {
 
-    setSelectedPreset(preset.name);
-    setEqValues([...preset.values]);
-  };
-  const updateBand = (index, value) => {
+  const switchProps = (value, onChange) => ({
+    value,
+    onValueChange: onChange,
+    trackColor: { false: COLORS.seekBarTrack, true: COLORS.primary + '70' },
+    thumbColor: value ? COLORS.primary : COLORS.textMuted,
+  });
 
-    const newVals = [...eqValues];
-    newVals[index] = Math.round(value);
-    setEqValues(newVals);
-    setSelectedPreset('Custom');
-  };
   return (
     <View style={s.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <LinearGradient colors={[COLORS.primary + '30', COLORS.background]}
-        style={StyleSheet.absoluteFill} locations={[0, 0.3]} />
-      {/* Header */}
+
       <View style={s.header}>
-        <TouchableOpacity onPress={onClose} style={s.closeBtn}>
+        <TouchableOpacity onPress={onClose} style={s.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="chevron-down" size={28} color={COLORS.textSecondary} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Audio Settings</Text>
+        <Text style={s.headerTitle}>Audio settings</Text>
         <View style={{ width: 40 }} />
       </View>
+
       <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Active indicator */}
-        <View style={s.activeBar}>
-          <Ionicons name="checkmark-circle" size={16} color={COLORS.secondary} />
-          <Text style={s.activeText}>Changes apply in real-time</Text>
-        </View>
-        {/* Autoplay — keeps music going when the queue runs out */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <View style={s.cardIconWrap}>
-              <Ionicons name="infinite-outline" size={22} color={COLORS.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Autoplay</Text>
-              <Text style={s.cardSub}>When the queue ends, keep playing similar songs</Text>
-            </View>
-            <Switch
-              value={autoplayEnabled} onValueChange={toggleAutoplay}
-              trackColor={{ false: COLORS.seekBarTrack, true: COLORS.primary + '60' }}
-              thumbColor={autoplayEnabled ? COLORS.primary : COLORS.textMuted}
-            />
+        <Text style={s.group}>Playback</Text>
+
+        <View style={s.row}>
+          <View style={s.rowText}>
+            <Text style={s.rowTitle}>Autoplay</Text>
+            <Text style={s.rowSub}>Keep playing similar songs when the queue ends</Text>
           </View>
+          <Switch {...switchProps(autoplayEnabled, toggleAutoplay)} />
         </View>
-        {/* Crossfade — FUNCTIONAL */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <View style={s.cardIconWrap}>
-              <Ionicons name="git-compare-outline" size={22} color={COLORS.primary} />
+
+        <View style={s.row}>
+          <View style={s.rowText}>
+            <Text style={s.rowTitle}>Fade in</Text>
+            <Text style={s.rowSub}>Ease each new song in over 2 seconds</Text>
+          </View>
+          <Switch {...switchProps(fadeInEnabled, toggleFadeIn)} />
+        </View>
+
+        <View style={[s.row, s.rowStack]}>
+          <View style={s.rowLine}>
+            <View style={s.rowText}>
+              <Text style={s.rowTitle}>Crossfade</Text>
+              <Text style={s.rowSub}>Blend into the next song</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Crossfade</Text>
-              <Text style={s.cardSub}>Smooth transition between tracks</Text>
-            </View>
-            <Text style={s.valueLabel}>
-              {crossfadeDuration === 0 ? 'Off' : `${crossfadeDuration}s`}
-            </Text>
+            <Text style={s.value}>{crossfadeDuration === 0 ? 'Off' : `${crossfadeDuration}s`}</Text>
           </View>
           <Slider
             style={s.slider}
@@ -111,282 +78,124 @@ export default function AudioSettingsScreen({ onClose }) {
             maximumTrackTintColor={COLORS.seekBarTrack}
             thumbTintColor={COLORS.primary}
           />
-          <View style={s.sliderLabels}>
-            <Text style={s.sliderLabel}>Off</Text>
-            <Text style={s.sliderLabel}>12s</Text>
-          </View>
         </View>
-        {/* Bass Boost — FUNCTIONAL */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <View style={s.cardIconWrap}>
-              <Ionicons name="volume-high" size={22} color="#EF4444" />
+
+        <View style={[s.row, s.rowStack]}>
+          <View style={s.rowLine}>
+            <View style={s.rowText}>
+              <Text style={s.rowTitle}>Speed</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Bass Boost</Text>
-              <Text style={s.cardSub}>Amplifies volume by 30% for richer bass</Text>
-            </View>
-            <Switch
-              value={bassBoostOn} onValueChange={toggleBassBoost}
-              trackColor={{ false: COLORS.seekBarTrack, true: COLORS.primary + '60' }}
-              thumbColor={bassBoostOn ? COLORS.primary : COLORS.textMuted}
-            />
-          </View>
-          {bassBoostOn && (
-            <View style={s.activeIndicator}>
-              <Ionicons name="radio" size={14} color={COLORS.secondary} />
-              <Text style={s.activeIndicatorText}>Active -- Volume amplified</Text>
-            </View>
-          )}
-        </View>
-        {/* Spatial Audio — Visual */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <View style={s.cardIconWrap}>
-              <Ionicons name="headset" size={22} color="#06D6A0" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Spatial Audio</Text>
-              <Text style={s.cardSub}>Immersive 3D sound experience</Text>
-            </View>
-            <Switch
-              value={spatialAudio} onValueChange={setSpatialAudio}
-              trackColor={{ false: COLORS.seekBarTrack, true: COLORS.primary + '60' }}
-              thumbColor={spatialAudio ? COLORS.primary : COLORS.textMuted}
-            />
-          </View>
-        </View>
-        {/* Fade In/Out — FUNCTIONAL */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <View style={s.cardIconWrap}>
-              <Ionicons name="pulse" size={22} color="#F59E0B" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Fade In / Out</Text>
-              <Text style={s.cardSub}>Gradually fade volume when starting tracks</Text>
-            </View>
-            <Switch
-              value={fadeInEnabled} onValueChange={toggleFadeIn}
-              trackColor={{ false: COLORS.seekBarTrack, true: COLORS.primary + '60' }}
-              thumbColor={fadeInEnabled ? COLORS.primary : COLORS.textMuted}
-            />
-          </View>
-          {fadeInEnabled && (
-            <View style={s.activeIndicator}>
-              <Ionicons name="radio" size={14} color={COLORS.secondary} />
-              <Text style={s.activeIndicatorText}>Active -- 2s fade on each new track</Text>
-            </View>
-          )}
-        </View>
-        {/* Tilt Gestures — FUNCTIONAL, optional motion controls */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <View style={s.cardIconWrap}>
-              <Ionicons name="phone-portrait-outline" size={22} color="#06B6D4" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Tilt Gestures</Text>
-              <Text style={s.cardSub}>Control playback by tilting — choose what each direction does</Text>
-            </View>
-            <Switch
-              value={tiltGesturesEnabled} onValueChange={toggleTiltGestures}
-              trackColor={{ false: COLORS.seekBarTrack, true: COLORS.primary + '60' }}
-              thumbColor={tiltGesturesEnabled ? COLORS.primary : COLORS.textMuted}
-            />
-          </View>
-          {tiltGesturesEnabled && (
-            <View style={s.tiltMapWrap}>
-              <Text style={s.tiltMapHint}>Tap an action to change it</Text>
-              {TILT_DIRECTIONS.map(dir => {
-                const current = tiltGestureMap?.[dir.key] || 'none';
-                return (
-                  <TouchableOpacity
-                    key={dir.key}
-                    style={s.tiltRow}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      const i = TILT_ACTIONS.indexOf(current);
-                      updateTiltGesture(dir.key, TILT_ACTIONS[(i + 1) % TILT_ACTIONS.length]);
-                    }}
-                  >
-                    <Ionicons name={dir.icon} size={16} color={COLORS.textSecondary} />
-                    <Text style={s.tiltDirLabel}>{dir.label}</Text>
-                    <Text style={[s.tiltActionLabel, current === 'none' && { color: COLORS.textMuted }]}>
-                      {TILT_ACTION_LABELS[current]}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
-        {/* Playback Speed — FUNCTIONAL */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <View style={s.cardIconWrap}>
-              <Ionicons name="speedometer-outline" size={22} color="#EC4899" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Playback Speed</Text>
-              <Text style={s.cardSub}>Changes apply immediately</Text>
-            </View>
-            <Text style={s.valueLabel}>{playbackSpeed.toFixed(1)}x</Text>
+            <Text style={s.value}>{playbackSpeed.toFixed(2).replace(/0$/, '')}x</Text>
           </View>
           <View style={s.speedRow}>
-            {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map(speed => (
-              <TouchableOpacity
-                key={speed}
-                style={[s.speedChip, playbackSpeed === speed && s.speedChipActive]}
-                onPress={() => updatePlaybackSpeed(speed)}
-              >
-                <Text style={[s.speedChipText, playbackSpeed === speed && { color: '#FFF' }]}>
-                  {speed}x
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {SPEEDS.map((speed) => {
+              const active = playbackSpeed === speed;
+              return (
+                <TouchableOpacity key={speed} onPress={() => updatePlaybackSpeed(speed)} style={s.speedItem} activeOpacity={0.7}>
+                  <Text style={[s.speedText, active && s.speedTextActive]}>{speed}x</Text>
+                  <View style={[s.speedDot, active && { backgroundColor: COLORS.primary }]} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
-        {/* Equalizer — Visual with presets */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <View style={s.cardIconWrap}>
-              <Ionicons name="options" size={22} color={COLORS.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Equalizer</Text>
-              <Text style={s.cardSub}>{selectedPreset} preset</Text>
-            </View>
-            <Switch
-              value={eqEnabled} onValueChange={setEqEnabled}
-              trackColor={{ false: COLORS.seekBarTrack, true: COLORS.primary + '60' }}
-              thumbColor={eqEnabled ? COLORS.primary : COLORS.textMuted}
-            />
+
+        <Text style={s.group}>Sound</Text>
+
+        <View style={s.row}>
+          <View style={s.rowText}>
+            <Text style={s.rowTitle}>Bass boost</Text>
+            <Text style={s.rowSub}>Raises volume 30% for a fuller low end</Text>
           </View>
-          {eqEnabled && (
-            <>
-              {/* Preset chips */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}
-                contentContainerStyle={s.presetRow}>
-                {EQ_PRESETS.map((preset) => (
-                  <TouchableOpacity
-                    key={preset.name}
-                    style={[s.presetChip, selectedPreset === preset.name && s.presetChipActive]}
-                    onPress={() => applyPreset(preset)}
-                  >
-                    <Text style={[s.presetText, selectedPreset === preset.name && { color: '#FFF' }]}>
-                      {preset.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              {/* EQ Bands */}
-              <View style={s.eqContainer}>
-                {EQ_BANDS.map((band, i) => (
-                  <View key={band.label} style={s.eqBand}>
-                    <Text style={s.eqDbLabel}>{eqValues[i] > 0 ? '+' : ''}{eqValues[i]}dB</Text>
-                    <View style={s.eqSliderWrap}>
-                      <Slider
-                        style={s.eqSlider}
-                        minimumValue={-8} maximumValue={8} step={1}
-                        value={eqValues[i]}
-                        onValueChange={(v) => updateBand(i, v)}
-                        minimumTrackTintColor={COLORS.primary}
-                        maximumTrackTintColor={COLORS.seekBarTrack}
-                        thumbTintColor={COLORS.primary}
-                      />
-                    </View>
-                    <Text style={s.eqFreqLabel}>{band.label}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
+          <Switch {...switchProps(bassBoostOn, toggleBassBoost)} />
         </View>
-        {/* Info note */}
-        <View style={s.infoNote}>
-          <Ionicons name="information-circle-outline" size={16} color={COLORS.textMuted} />
-          <Text style={s.infoNoteText}>
-            Crossfade, Bass Boost, Playback Speed, and Fade In apply to the audio engine in real-time. 
-            Equalizer bands and Spatial Audio are visual presets for future native module integration.
-          </Text>
+
+        <Text style={s.group}>Motion</Text>
+
+        <View style={s.row}>
+          <View style={s.rowText}>
+            <Text style={s.rowTitle}>Tilt gestures</Text>
+            <Text style={s.rowSub}>Control playback by tilting the phone</Text>
+          </View>
+          <Switch {...switchProps(tiltGesturesEnabled, toggleTiltGestures)} />
         </View>
+
+        {tiltGesturesEnabled && (
+          <View style={s.tiltWrap}>
+            <Text style={s.hint}>Tap a direction to change what it does. Hold a volume tilt to keep adjusting.</Text>
+            {TILT_DIRECTIONS.map((dir) => {
+              const current = tiltGestureMap?.[dir.key] || 'none';
+              return (
+                <TouchableOpacity
+                  key={dir.key}
+                  style={s.tiltRow}
+                  activeOpacity={0.6}
+                  onPress={() => {
+                    const i = TILT_ACTIONS.indexOf(current);
+                    updateTiltGesture(dir.key, TILT_ACTIONS[(i + 1) % TILT_ACTIONS.length]);
+                  }}
+                >
+                  <Ionicons name={dir.icon} size={16} color={COLORS.textMuted} />
+                  <Text style={s.tiltDir}>{dir.label}</Text>
+                  <Text style={[s.tiltAction, current === 'none' && { color: COLORS.textMuted }]}>
+                    {TILT_ACTION_LABELS[current]}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        <Text style={s.footnote}>Changes apply instantly.</Text>
       </ScrollView>
     </View>
   );
 }
-const createStyles = (COLORS, SHADOWS) => StyleSheet.create({
+
+const createStyles = (COLORS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     paddingTop: Platform.OS === 'ios' ? 60 : 44,
-    paddingHorizontal: 20, paddingBottom: 12,
+    paddingHorizontal: 20, paddingBottom: 8,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   closeBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '700' },
-  scrollContent: { paddingHorizontal: SPACING.xl, paddingBottom: 40 },
-  activeBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: COLORS.secondary + '15', borderRadius: 10,
-    paddingVertical: 8, paddingHorizontal: 14, marginBottom: 16,
-    borderWidth: 1, borderColor: COLORS.secondary + '25',
+  headerTitle: { color: COLORS.textPrimary, fontSize: 17, fontWeight: '700' },
+  scrollContent: { paddingHorizontal: SPACING.xl, paddingBottom: 60 },
+
+  group: {
+    color: COLORS.primary, fontSize: 11, fontWeight: '800',
+    letterSpacing: 1.6, textTransform: 'uppercase',
+    marginTop: 30, marginBottom: 4,
   },
-  activeText: { color: COLORS.secondary, fontSize: 12, fontWeight: '600' },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.xl, padding: 18,
-    borderWidth: 1, borderColor: COLORS.cardBorder,
-    marginBottom: 14,
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.divider,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  cardIconWrap: {
-    width: 42, height: 42, borderRadius: 12,
-    backgroundColor: COLORS.surfaceElevated,
-    justifyContent: 'center', alignItems: 'center',
+  rowStack: { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
+  rowLine: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  rowText: { flex: 1 },
+  rowTitle: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '600' },
+  rowSub: { color: COLORS.textMuted, fontSize: 12.5, marginTop: 3, lineHeight: 17 },
+  value: { color: COLORS.primary, fontSize: 15, fontWeight: '700' },
+  slider: { width: '100%', height: 32, marginHorizontal: -4 },
+
+  speedRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  speedItem: { alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, gap: 7 },
+  speedText: { color: COLORS.textMuted, fontSize: 14, fontWeight: '600' },
+  speedTextActive: { color: COLORS.textPrimary, fontWeight: '800' },
+  speedDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'transparent' },
+
+  tiltWrap: { paddingTop: 12 },
+  hint: { color: COLORS.textMuted, fontSize: 12, lineHeight: 17, marginBottom: 6 },
+  tiltRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.divider,
   },
-  cardTitle: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  cardSub: { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
-  valueLabel: { color: COLORS.primary, fontSize: 16, fontWeight: '700' },
-  slider: { width: '100%', marginTop: 14, height: 32 },
-  sliderLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 },
-  sliderLabel: { color: COLORS.textMuted, fontSize: 11 },
-  activeIndicator: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    marginTop: 12, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: COLORS.cardBorder,
-  },
-  activeIndicatorText: { color: COLORS.secondary, fontSize: 12, fontWeight: '500' },
-  tiltMapWrap: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.cardBorder, gap: 2 },
-  tiltMapHint: { color: COLORS.textMuted, fontSize: 11, marginBottom: 8 },
-  tiltRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
-  tiltDirLabel: { color: COLORS.textSecondary, fontSize: 13, flex: 1 },
-  tiltActionLabel: { color: COLORS.primary, fontSize: 13, fontWeight: '700' },
-  speedRow: { flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' },
-  speedChip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-    backgroundColor: COLORS.surfaceElevated, borderWidth: 1, borderColor: COLORS.cardBorder,
-  },
-  speedChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  speedChipText: { color: COLORS.textSecondary, fontSize: 13, fontWeight: '600' },
-  presetRow: { gap: 8, marginTop: 16 },
-  presetChip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-    backgroundColor: COLORS.surfaceElevated, borderWidth: 1, borderColor: COLORS.cardBorder,
-  },
-  presetChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  presetText: { color: COLORS.textSecondary, fontSize: 13, fontWeight: '600' },
-  eqContainer: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    marginTop: 20, paddingHorizontal: 8,
-  },
-  eqBand: { alignItems: 'center', flex: 1 },
-  eqDbLabel: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 8 },
-  eqSliderWrap: { height: 120, justifyContent: 'center' },
-  eqSlider: { width: 120, height: 32, transform: [{ rotate: '-90deg' }] },
-  eqFreqLabel: { color: COLORS.textMuted, fontSize: 11, marginTop: 8 },
-  infoNote: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    paddingHorizontal: 4, paddingTop: 8,
-  },
-  infoNoteText: { color: COLORS.textMuted, fontSize: 11, flex: 1, lineHeight: 16 },
+  tiltDir: { color: COLORS.textSecondary, fontSize: 14.5, flex: 1 },
+  tiltAction: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
+
+  footnote: { color: COLORS.textMuted, fontSize: 12, marginTop: 28, textAlign: 'center' },
 });
